@@ -5,7 +5,8 @@ import "../App.css"
 import offline from "../images/offline.jpg"
 import $ from "jquery"
 
-const server = "http://172.31.205.114:8088/janus"
+// const server = "http://172.31.205.114:8088/janus"
+const server = "http://192.168.10.52:8088/janus"
 // server = process.env.REACT_APP_JANUS_URL;
 let janusRoom = null
 let vroomHandle = null

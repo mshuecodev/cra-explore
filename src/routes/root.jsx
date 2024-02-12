@@ -39,6 +39,9 @@ export default function Root() {
 						<li>
 							<a href={`/room`}>Room</a>
 						</li>
+						<li>
+							<a href={`/vcall`}>VCall</a>
+						</li>
 					</ul>
 				</nav>
 			</div>

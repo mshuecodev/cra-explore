@@ -3,12 +3,14 @@ import ReactDOM from "react-dom/client"
 import { createBrowserRouter, RouterProvider } from "react-router-dom"
 import "./index.css"
 import reportWebVitals from "./reportWebVitals"
+import "bootstrap/dist/css/bootstrap.min.css"
 
 // page
 import Root from "./routes/root"
 import ErrorPage from "./error-page"
 import Home from "./routes/home"
 import Room from "./routes/room"
+import VCall from "./routes/vcall"
 
 const router = createBrowserRouter([
 	{
@@ -23,6 +25,10 @@ const router = createBrowserRouter([
 	{
 		path: "room",
 		element: <Room />
+	},
+	{
+		path: "vcall",
+		element: <VCall />
 	}
 ])
 

@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from "react"
 import { Container, Row, Col } from "react-bootstrap"
+
+import DialogSimple from "../components/Dialog"
 // Replace with your own imported variables for iceServers, Janus, and server
 import Janus from "../janus"
-const server = "http://172.31.205.114:8088/janus"
+// const server = "http://172.31.205.114:8088/janus"
+// const server = "http://localhost:8088/janus"
+const server = "https://webrtc.sedap.app/janus"
 const iceServers = []
 
 // Helper to parse query string
@@ -30,8 +34,11 @@ function VideoCallApp() {
 	const [isRegister, setIsRegister] = useState(false)
 	const [isLoadingCall, setIsLoadingCall] = useState(false)
 
-	const [username, setUsername] = useState(null)
-	const [peer, setPeer] = useState(null)
+	const [myusername, setMyUsername] = useState(null)
+	const [yourUsername, setYourUsername] = useState(null)
+	const [dialogcall, setDialogCall] = useState(false)
+
+	const [jsepcall, setJsepCall] = useState(false)
 
 	// let videocall = null
 
@@ -43,6 +50,32 @@ function VideoCallApp() {
 			}
 		}
 	}, [janus])
+
+	const onCloseDialogCall = () => {
+		setDialogCall(false)
+	}
+
+	const onAnswerCall = (jsep) => {
+		videocall.createAnswer({
+			jsep: jsepcall,
+			// We want bidirectional audio and video, if offered,
+			// plus data channels too if they were negotiated
+			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+			success: function (jsep) {
+				console.log("Got SDP!", jsep)
+				Janus.debug("Got SDP!", jsep)
+				let body = { request: "accept" }
+				videocall.send({ message: body, jsep: jsep })
+				// $("#peer").attr("disabled", true)
+				// $("#call").removeAttr("disabled").html("Hangup").removeClass("btn-success").addClass("btn-danger").unbind("click").click(doHangup)
+			},
+			error: function (error) {
+				console.log("WebRTC error:", error)
+				Janus.error("WebRTC error:", error)
+				alert("WebRTC error... " + error.message)
+			}
+		})
+	}
 
 	const handleStart = () => {
 		Janus.init({
@@ -89,7 +122,7 @@ function VideoCallApp() {
 							},
 							consentDialog: function (on) {
 								console.log("Consent dialog should be " + (on ? "on" : "off") + " now")
-								// Janus.debug("Consent dialog should be " + (on ? "on" : "off") + " now")
+								Janus.debug("Consent dialog should be " + (on ? "on" : "off") + " now")
 								// if (on) {
 								// 	// Darken screen and show hint
 								// 	$.blockUI({
@@ -115,180 +148,200 @@ function VideoCallApp() {
 							},
 							mediaState: function (medium, on, mid) {
 								console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
-								// Janus.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
+								Janus.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
 							},
 							webrtcState: function (on) {
 								console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
-								// Janus.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
+								Janus.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
 								// $("#videoleft").parent().unblock()
 							},
 							slowLink: function (uplink, lost, mid) {
 								console.warn("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
-								// Janus.warn("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
+								Janus.warn("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
 							},
 							onmessage: function (msg, jsep) {
-								console.debug(" ::: Got a message :::", msg)
-								// Janus.debug(" ::: Got a message :::", msg)
+								console.log(" ::: Got a message :::", msg)
+								Janus.debug(" ::: Got a message :::", msg)
 								let result = msg["result"]
 
-								// if (result) {
-								// 	if (result["list"]) {
-								// 		let list = result["list"]
-								// 		Janus.debug("Got a list of registered peers:", list)
-								// 		for (let mp in list) {
-								// 			Janus.debug("  >> [" + list[mp] + "]")
-								// 		}
-								// 	} else if (result["event"]) {
-								// 		let event = result["event"]
-								// 		if (event === "registered") {
-								// 			myusername = escapeXmlTags(result["username"])
-								// 			Janus.log("Successfully registered as " + myusername + "!")
-								// 			$("#youok")
-								// 				.removeClass("hide")
-								// 				.html("Registered as '" + myusername + "'")
-								// 			// Get a list of available peers, just for fun
-								// 			videocall.send({ message: { request: "list" } })
-								// 			// Enable buttons to call now
-								// 			$("#phone").removeClass("invisible")
-								// 			$("#call").unbind("click").click(doCall)
-								// 			$("#peer").focus()
-								// 		} else if (event === "calling") {
-								// 			Janus.log("Waiting for the peer to answer...")
-								// 			// TODO Any ringtone?
-								// 			alert("Waiting for the peer to answer...")
-								// 		} else if (event === "incomingcall") {
-								// 			Janus.log("Incoming call from " + result["username"] + "!")
-								// 			yourusername = escapeXmlTags(result["username"])
-								// 			// Notify user
-								// 			hideAll()
-								// 			dialog({
-								// 				message: "Incoming call from " + yourusername + "!",
-								// 				title: "Incoming call",
-								// 				closeButton: false,
-								// 				buttons: {
-								// 					success: {
-								// 						label: "Answer",
-								// 						className: "btn-success",
-								// 						callback: function () {
-								// 							$("#peer").val(result["username"]).attr("disabled", true)
-								// 							videocall.createAnswer({
-								// 								jsep: jsep,
-								// 								// We want bidirectional audio and video, if offered,
-								// 								// plus data channels too if they were negotiated
-								// 								tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
-								// 								success: function (jsep) {
-								// 									Janus.debug("Got SDP!", jsep)
-								// 									let body = { request: "accept" }
-								// 									videocall.send({ message: body, jsep: jsep })
-								// 									$("#peer").attr("disabled", true)
-								// 									$("#call").removeAttr("disabled").html("Hangup").removeClass("btn-success").addClass("btn-danger").unbind("click").click(doHangup)
-								// 								},
-								// 								error: function (error) {
-								// 									Janus.error("WebRTC error:", error)
-								// 									alert("WebRTC error... " + error.message)
-								// 								}
-								// 							})
-								// 						}
-								// 					},
-								// 					danger: {
-								// 						label: "Decline",
-								// 						className: "btn-danger",
-								// 						callback: function () {
-								// 							doHangup()
-								// 						}
-								// 					}
-								// 				}
-								// 			})
-								// 		} else if (event === "accepted") {
-								// 			hideAll()
-								// 			let peer = escapeXmlTags(result["username"])
-								// 			if (!peer) {
-								// 				Janus.log("Call started!")
-								// 			} else {
-								// 				Janus.log(peer + " accepted the call!")
-								// 				yourusername = peer
-								// 			}
-								// 			// Video call can start
-								// 			if (jsep) videocall.handleRemoteJsep({ jsep: jsep })
-								// 			$("#call").removeAttr("disabled").html("Hangup").removeClass("btn-success").addClass("btn-danger").unbind("click").click(doHangup)
-								// 		} else if (event === "update") {
-								// 			// An 'update' event may be used to provide renegotiation attempts
-								// 			if (jsep) {
-								// 				if (jsep.type === "answer") {
-								// 					videocall.handleRemoteJsep({ jsep: jsep })
-								// 				} else {
-								// 					videocall.createAnswer({
-								// 						jsep: jsep,
-								// 						// We want bidirectional audio and video, if offered,
-								// 						// plus data channels too if they were negotiated
-								// 						tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
-								// 						success: function (jsep) {
-								// 							Janus.debug("Got SDP!", jsep)
-								// 							let body = { request: "set" }
-								// 							videocall.send({ message: body, jsep: jsep })
-								// 						},
-								// 						error: function (error) {
-								// 							Janus.error("WebRTC error:", error)
-								// 							alert("WebRTC error... " + error.message)
-								// 						}
-								// 					})
-								// 				}
-								// 			}
-								// 		} else if (event === "hangup") {
-								// 			Janus.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
-								// 			// Reset status
-								// 			hideAll()
-								// 			videocall.hangup()
-								// 			$("#waitingvideo").remove()
-								// 			$("#videos").addClass("hide")
-								// 			$("#peer").removeAttr("disabled").val("")
-								// 			$("#call").removeAttr("disabled").html("Call").removeClass("btn-danger").addClass("btn-success").unbind("click").click(doCall)
-								// 			$("#toggleaudio").attr("disabled", true)
-								// 			$("#togglevideo").attr("disabled", true)
-								// 			$("#bitrate").attr("disabled", true)
-								// 			$("#curbitrate").addClass("hide")
-								// 			$("#curres").addClass("hide")
-								// 		} else if (event === "simulcast") {
-								// 			// Is simulcast in place?
-								// 			let substream = result["substream"]
-								// 			let temporal = result["temporal"]
-								// 			if ((substream !== null && substream !== undefined) || (temporal !== null && temporal !== undefined)) {
-								// 				if (!simulcastStarted) {
-								// 					simulcastStarted = true
-								// 					addSimulcastButtons(result["videocodec"] === "vp8")
-								// 				}
-								// 				// We just received notice that there's been a switch, update the buttons
-								// 				updateSimulcastButtons(substream, temporal)
-								// 			}
-								// 		}
-								// 	}
-								// } else {
-								// 	// FIXME Error?
-								// 	let error = msg["error"]
-								// 	alert(error)
-								// 	if (error.indexOf("already taken") > 0) {
-								// 		// FIXME Use status codes...
-								// 		$("#username").removeAttr("disabled").val("")
-								// 		$("#register").removeAttr("disabled").unbind("click").click(registerUsername)
-								// 	}
-								// 	// TODO Reset status
-								// 	videocall.hangup()
-								// 	$("#waitingvideo").remove()
-								// 	$("#videos").addClass("hide")
-								// 	$("#peer").removeAttr("disabled").val("")
-								// 	$("#call").removeAttr("disabled").html("Call").removeClass("btn-danger").addClass("btn-success").unbind("click").click(doCall)
-								// 	$("#toggleaudio").attr("disabled", true)
-								// 	$("#togglevideo").attr("disabled", true)
-								// 	$("#bitrate").attr("disabled", true)
-								// 	$("#curbitrate").addClass("hide")
-								// 	$("#curres").addClass("hide")
-								// 	if (bitrateTimer) clearInterval(bitrateTimer)
-								// 	bitrateTimer = null
-								// }
+								console.log("result onmessage", result)
+
+								if (result) {
+									if (result["list"]) {
+										let list = result["list"]
+										console.log("Got a list of registered peers:", list)
+										Janus.debug("Got a list of registered peers:", list)
+										for (let mp in list) {
+											console.log("  >> [" + list[mp] + "]")
+											Janus.debug("  >> [" + list[mp] + "]")
+										}
+									} else if (result["event"]) {
+										let event = result["event"]
+										if (event === "registered") {
+											// myusername = escapeXmlTags(result["username"])
+											// let _myusername = escapeXmlTags(result["username"])
+											let _myusername = result["username"]
+											setMyUsername(_myusername)
+											Janus.log("Successfully registered as " + _myusername + "!")
+											// $("#youok")
+											// 	.removeClass("hide")
+											// 	.html("Registered as '" + myusername + "'")
+											// Get a list of available peers, just for fun
+											videocall.send({ message: { request: "list" } })
+											// Enable buttons to call now
+											// $("#phone").removeClass("invisible")
+											// $("#call").unbind("click").click(doCall)
+											// $("#peer").focus()
+										} else if (event === "calling") {
+											console.log("Waiting for the peer to answer...")
+											alert("calling here")
+											Janus.log("Waiting for the peer to answer...")
+											// TODO Any ringtone?
+											alert("Waiting for the peer to answer...")
+										} else if (event === "incomingcall") {
+											Janus.log("Incoming call from " + result["username"] + "!")
+											// yourusername = escapeXmlTags(result["username"])
+											// let _yourusername = escapeXmlTags(result["username"])
+											let _yourusername = result["username"]
+											setYourUsername(_yourusername)
+											console.log("incoming call here", _yourusername)
+											setDialogCall(true)
+											setJsepCall(jsep)
+											// Notify user
+											// hideAll()
+											// bootbox.dialog({
+											// 	message: "Incoming call from " + _yourusername + "!",
+											// 	title: "Incoming call",
+											// 	closeButton: false,
+											// 	buttons: {
+											// 		success: {
+											// 			label: "Answer",
+											// 			className: "btn-success",
+											// 			callback: function () {
+											// 				// $("#peer").val(result["username"]).attr("disabled", true)
+											// 				videocall.createAnswer({
+											// 					jsep: jsep,
+											// 					// We want bidirectional audio and video, if offered,
+											// 					// plus data channels too if they were negotiated
+											// 					tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+											// 					success: function (jsep) {
+											// 						Janus.debug("Got SDP!", jsep)
+											// 						let body = { request: "accept" }
+											// 						videocall.send({ message: body, jsep: jsep })
+											// 						// $("#peer").attr("disabled", true)
+											// 						// $("#call").removeAttr("disabled").html("Hangup").removeClass("btn-success").addClass("btn-danger").unbind("click").click(doHangup)
+											// 					},
+											// 					error: function (error) {
+											// 						Janus.error("WebRTC error:", error)
+											// 						alert("WebRTC error... " + error.message)
+											// 					}
+											// 				})
+											// 			}
+											// 		},
+											// 		danger: {
+											// 			label: "Decline",
+											// 			className: "btn-danger",
+											// 			callback: function () {
+											// 				doHangup()
+											// 			}
+											// 		}
+											// 	}
+											// })
+										} else if (event === "accepted") {
+											// hideAll()
+											let peer = escapeXmlTags(result["username"])
+											if (!peer) {
+												Janus.log("Call started!")
+											} else {
+												Janus.log(peer + " accepted the call!")
+												// yourusername = peer
+												setYourUsername(peer)
+											}
+											// Video call can start
+											if (jsep) videocall.handleRemoteJsep({ jsep: jsep })
+											// $("#call").removeAttr("disabled").html("Hangup").removeClass("btn-success").addClass("btn-danger").unbind("click").click(doHangup)
+										} else if (event === "update") {
+											// An 'update' event may be used to provide renegotiation attempts
+											if (jsep) {
+												if (jsep.type === "answer") {
+													videocall.handleRemoteJsep({ jsep: jsep })
+												} else {
+													videocall.createAnswer({
+														jsep: jsep,
+														// We want bidirectional audio and video, if offered,
+														// plus data channels too if they were negotiated
+														tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+														success: function (jsep) {
+															console.log("Got SDP!", jsep)
+															Janus.debug("Got SDP!", jsep)
+															let body = { request: "set" }
+															videocall.send({ message: body, jsep: jsep })
+														},
+														error: function (error) {
+															console.log("WebRTC error:", error)
+															Janus.error("WebRTC error:", error)
+															alert("WebRTC error... " + error.message)
+														}
+													})
+												}
+											}
+										} else if (event === "hangup") {
+											console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
+											Janus.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
+											// Reset status
+											// hideAll()
+											videocall.hangup()
+											// $("#waitingvideo").remove()
+											// $("#videos").addClass("hide")
+											// $("#peer").removeAttr("disabled").val("")
+											// $("#call").removeAttr("disabled").html("Call").removeClass("btn-danger").addClass("btn-success").unbind("click").click(doCall)
+											// $("#toggleaudio").attr("disabled", true)
+											// $("#togglevideo").attr("disabled", true)
+											// $("#bitrate").attr("disabled", true)
+											// $("#curbitrate").addClass("hide")
+											// $("#curres").addClass("hide")
+										} else if (event === "simulcast") {
+											// Is simulcast in place?
+											let substream = result["substream"]
+											let temporal = result["temporal"]
+											if ((substream !== null && substream !== undefined) || (temporal !== null && temporal !== undefined)) {
+												if (!simulcastStarted) {
+													simulcastStarted = true
+													addSimulcastButtons(result["videocodec"] === "vp8")
+												}
+												// We just received notice that there's been a switch, update the buttons
+												updateSimulcastButtons(substream, temporal)
+											}
+										}
+									}
+								} else {
+									// FIXME Error?
+									let error = msg["error"]
+									alert(error)
+									if (error.indexOf("already taken") > 0) {
+										console.log("error already taken")
+										// FIXME Use status codes...
+										// $("#username").removeAttr("disabled").val("")
+										// $("#register").removeAttr("disabled").unbind("click").click(registerUsername)
+									}
+									// TODO Reset status
+									videocall.hangup()
+									// $("#waitingvideo").remove()
+									// $("#videos").addClass("hide")
+									// $("#peer").removeAttr("disabled").val("")
+									// $("#call").removeAttr("disabled").html("Call").removeClass("btn-danger").addClass("btn-success").unbind("click").click(doCall)
+									// $("#toggleaudio").attr("disabled", true)
+									// $("#togglevideo").attr("disabled", true)
+									// $("#bitrate").attr("disabled", true)
+									// $("#curbitrate").addClass("hide")
+									// $("#curres").addClass("hide")
+									if (bitrateTimer) clearInterval(bitrateTimer)
+									bitrateTimer = null
+								}
 							},
 							onlocaltrack: function (track, on) {
 								console.log("Local track " + (on ? "added" : "removed") + ":", track)
-								// Janus.debug("Local track " + (on ? "added" : "removed") + ":", track)
+								Janus.debug("Local track " + (on ? "added" : "removed") + ":", track)
 								// We use the track ID as name of the element, but it may contain invalid characters
 								let trackId = track.id.replace(/[{}]/g, "")
 								// if (!on) {
@@ -478,8 +531,8 @@ function VideoCallApp() {
 								console.log(" ::: Got a cleanup notification :::")
 								// Janus.log(" ::: Got a cleanup notification :::")
 								// console.log("oncleanup")
-								setUsername(null)
-								setPeer(null)
+								setMyUsername(null)
+								setYourUsername(null)
 								setLocalTracks({})
 								setLocalVideos(0)
 								setRemoteTracks({})
@@ -542,7 +595,7 @@ function VideoCallApp() {
 	const registerUsername = async () => {
 		setIsRegister(true)
 		try {
-			let register = { request: "register", username: username }
+			let register = { request: "register", username: myusername }
 			await videocall.send({ message: register })
 		} catch (error) {
 			console.log("registerusername error", error)
@@ -553,9 +606,10 @@ function VideoCallApp() {
 		videocall.createOffer({
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
 			success: function (jsep) {
-				Janus.debug("Got SDP!", jsep)
 				console.debug("Got SDP!", jsep)
-				let body = { request: "call", username: peer }
+
+				Janus.debug("Got SDP!", jsep)
+				let body = { request: "call", username: yourUsername }
 				videocall.send({ message: body, jsep: jsep })
 				// Create a spinner waiting for the remote video
 				// $('#videoright').html(
@@ -648,8 +702,8 @@ function VideoCallApp() {
 												<i class="fa-solid fa-user"></i>
 											</span>
 											<input
-												value={username}
-												onChange={(e) => setUsername(e.target.value)}
+												value={myusername}
+												onChange={(e) => setMyUsername(e.target.value)}
 												class="form-control"
 												type="text"
 												placeholder="Choose a username"
@@ -683,8 +737,8 @@ function VideoCallApp() {
 												<i class="fa-solid fa-phone"></i>
 											</span>
 											<input
-												value={peer}
-												onChange={(e) => setPeer(e.target.value)}
+												value={yourUsername}
+												onChange={(e) => setYourUsername(e.target.value)}
 												class="form-control"
 												type="text"
 												placeholder="Who should we call?"
@@ -811,7 +865,7 @@ function VideoCallApp() {
 											placeholder="Write a DataChannel message"
 											autocomplete="off"
 											id="datasend"
-											onkeypress="return checkEnter(this, event);"
+											onKeyPress="return checkEnter(this, event);"
 											disabled
 										/>
 									</div>
@@ -874,6 +928,15 @@ function VideoCallApp() {
 				<hr />
 				<div class="footer"></div>
 			</div>
+
+			<DialogSimple
+				show={dialogcall}
+				onClose={onCloseDialogCall}
+				title="Incoming call"
+				content={<p>"Incoming call from " + yourUsername + "!"</p>}
+				action={"Answer"}
+				onAction={onAnswerCall}
+			/>
 		</div>
 	)
 }

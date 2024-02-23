@@ -7,7 +7,7 @@ function DialogSimple({ show, title, content, onClose, action, onAction }) {
 			className="modal show"
 			style={{ display: "block", position: "initial" }}
 		>
-			<Modal.Dialog
+			<Modal
 				show={show}
 				onHide={onClose}
 			>
@@ -20,18 +20,18 @@ function DialogSimple({ show, title, content, onClose, action, onAction }) {
 				<Modal.Footer>
 					<Button
 						variant="secondary"
-						onclick={onClose}
+						onClick={onClose}
 					>
 						Close
 					</Button>
 					<Button
 						variant="primary"
-						onclick={onAction}
+						onClick={onAction}
 					>
 						{action}
 					</Button>
 				</Modal.Footer>
-			</Modal.Dialog>
+			</Modal>
 		</div>
 	)
 }

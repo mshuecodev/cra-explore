@@ -55,7 +55,37 @@ function VideoCallApp() {
 		setDialogCall(false)
 	}
 
-	const onAnswerCall = (jsep) => {
+	const doCall = () => {
+		videocall.createOffer({
+			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
+			success: function (jsep) {
+				console.debug("Got SDP!", jsep)
+
+				Janus.debug("Got SDP!", jsep)
+				let body = { request: "call", username: yourUsername }
+				videocall.send({ message: body, jsep: jsep })
+				// Create a spinner waiting for the remote video
+				// $('#videoright').html(
+				// 	'<div class="text-center">' +
+				// 	'	<div id="spinner" class="spinner-border" role="status">' +
+				// 	'		<span class="visually-hidden">Loading...</span>' +
+				// 	'	</div>' +
+				// 	'</div>');
+			},
+			error: function (error) {
+				console.log("error calling", error)
+				alert(error)
+			}
+		})
+	}
+
+	const doHangup = () => {
+		// Hangup a call
+		// ...
+	}
+
+	const onAnswerCall = () => {
+		console.log("answer here")
 		videocall.createAnswer({
 			jsep: jsepcall,
 			// We want bidirectional audio and video, if offered,
@@ -66,13 +96,11 @@ function VideoCallApp() {
 				Janus.debug("Got SDP!", jsep)
 				let body = { request: "accept" }
 				videocall.send({ message: body, jsep: jsep })
-				// $("#peer").attr("disabled", true)
-				// $("#call").removeAttr("disabled").html("Hangup").removeClass("btn-success").addClass("btn-danger").unbind("click").click(doHangup)
 			},
 			error: function (error) {
 				console.log("WebRTC error:", error)
 				Janus.error("WebRTC error:", error)
-				alert("WebRTC error... " + error.message)
+				alert("WebRTC error... " + error)
 			}
 		})
 	}
@@ -194,7 +222,6 @@ function VideoCallApp() {
 											// $("#peer").focus()
 										} else if (event === "calling") {
 											console.log("Waiting for the peer to answer...")
-											alert("calling here")
 											Janus.log("Waiting for the peer to answer...")
 											// TODO Any ringtone?
 											alert("Waiting for the peer to answer...")
@@ -602,31 +629,6 @@ function VideoCallApp() {
 		}
 	}
 
-	const doCall = () => {
-		videocall.createOffer({
-			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
-			success: function (jsep) {
-				console.debug("Got SDP!", jsep)
-
-				Janus.debug("Got SDP!", jsep)
-				let body = { request: "call", username: yourUsername }
-				videocall.send({ message: body, jsep: jsep })
-				// Create a spinner waiting for the remote video
-				// $('#videoright').html(
-				// 	'<div class="text-center">' +
-				// 	'	<div id="spinner" class="spinner-border" role="status">' +
-				// 	'		<span class="visually-hidden">Loading...</span>' +
-				// 	'	</div>' +
-				// 	'</div>');
-			}
-		})
-	}
-
-	const doHangup = () => {
-		// Hangup a call
-		// ...
-	}
-
 	const sendData = () => {
 		// Send Data
 		// ...
@@ -933,7 +935,7 @@ function VideoCallApp() {
 				show={dialogcall}
 				onClose={onCloseDialogCall}
 				title="Incoming call"
-				content={<p>"Incoming call from " + yourUsername + "!"</p>}
+				content={<p>"Incoming call from " + {yourUsername} + "!"</p>}
 				action={"Answer"}
 				onAction={onAnswerCall}
 			/>

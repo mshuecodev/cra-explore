@@ -117,6 +117,7 @@ function VideoCallApp() {
 				let janus = new Janus({
 					server: server,
 					iceServers: iceServers,
+					// withCred entials: true,
 					success: function () {
 						// Attach to VideoCall plugin
 						janus.attach({

@@ -23,16 +23,20 @@ function VideoCallApp() {
 	const leftRef = useRef(null)
 	const rightRef = useRef(null)
 
-	let janus = null
-	let localTracks = {}
-
-	// const [janus, setJanus] = useState(null)
+	const [janus, setJanus] = useState(null)
 	const [videocall, setVideocall] = useState(null)
 	const [opaqueId, setOpaqueId] = useState("videocalltest-" + Janus.randomString(12))
 
-	// const [localTracks, setLocalTracks] = useState({})
 	const [trackID, setTrackID] = useState(null)
+	const [localTracks, setLocalTracks] = useState({})
 	const [localVideos, setLocalVideos] = useState(0)
+
+	const [videoLeftEnable, setVideoLeftEnable] = useState(false)
+	const [videoRightEnable, setVideoRightEnable] = useState(false)
+
+	const [audioLeftEnable, setAudioLefEnable] = useState(false)
+	const [audioRightEnable, setAudioRightEnable] = useState(false)
+
 	const [remoteTracks, setRemoteTracks] = useState({})
 	const [remoteVideos, setRemoteVideos] = useState(0)
 
@@ -41,6 +45,9 @@ function VideoCallApp() {
 	const [videoenabled, setVideoenabled] = useState(false)
 	const [doSimulcast, setDoSimulcast] = useState(getQueryStringValue("simulcast") === "yes" || getQueryStringValue("simulcast") === "true")
 	const [simulcastStarted, setSimulcastStarted] = useState(false)
+
+	const [callAccepted, setCallAccepted] = useState(false)
+
 	const [isStart, setIsStart] = useState(false)
 	const [isRegister, setIsRegister] = useState(false)
 	const [isLoadingCall, setIsLoadingCall] = useState(false)
@@ -51,7 +58,7 @@ function VideoCallApp() {
 
 	const [jsepcall, setJsepCall] = useState(false)
 
-	console.log("localTracks", localTracks)
+	// console.log("localTracks", localTracks)
 
 	// let videocall = null
 
@@ -77,13 +84,7 @@ function VideoCallApp() {
 				Janus.debug("Got SDP!", jsep)
 				let body = { request: "call", username: yourUsername }
 				videocall.send({ message: body, jsep: jsep })
-				// Create a spinner waiting for the remote video
-				// $('#videoright').html(
-				// 	'<div class="text-center">' +
-				// 	'	<div id="spinner" class="spinner-border" role="status">' +
-				// 	'		<span class="visually-hidden">Loading...</span>' +
-				// 	'	</div>' +
-				// 	'</div>');
+				setIsLoadingCall(true)
 			},
 			error: function (error) {
 				console.log("error calling", error)
@@ -209,8 +210,6 @@ function VideoCallApp() {
 								Janus.debug(" ::: Got a message :::", msg)
 								let result = msg["result"]
 
-								console.log("result onmessage", result)
-
 								if (result) {
 									if (result["list"]) {
 										let list = result["list"]
@@ -302,6 +301,7 @@ function VideoCallApp() {
 											} else {
 												Janus.log(peer + " accepted the call!")
 												console.log(peer + " accepted the call!")
+												setCallAccepted(true)
 												// yourusername = peer
 												setYourUsername(peer)
 											}
@@ -390,15 +390,13 @@ function VideoCallApp() {
 								}
 							},
 							onlocaltrack: function (track, on) {
-								console.log("Local track " + (on ? "added" : "removed") + ":", track)
 								Janus.debug("Local track " + (on ? "added" : "removed") + ":", track)
-								// setLocalTracks(track)
-								// We use the track ID as name of the element, but it may contain invalid characters
+								console.log("Local track " + (on ? "added" : "removed") + ":", track)
 								let trackId = track.id.replace(/[{}]/g, "")
-								setTrackID(trackId)
+
 								if (!on) {
-									// Track removed, get rid of the stream and the rendering
 									let stream = localTracks[trackId]
+									console.log("stream", stream)
 									if (stream) {
 										try {
 											let tracks = stream.getTracks()
@@ -408,61 +406,80 @@ function VideoCallApp() {
 											}
 										} catch (e) {}
 									}
+
 									if (track.kind === "video") {
-										// $("#myvideo" + trackId).remove()
-										localVideos--
-										if (localVideos === 0) {
-											console.log("localvideo", localVideos)
-											// No video, at least for now: show a placeholder
-											// if ($("#videoleft .no-video-container").length === 0) {
-											// 	$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-											// }
+										setLocalVideos((prevLocalVideos) => prevLocalVideos - 1)
+
+										if (localVideos === 1) {
+											setLocalVideos(0)
 										}
 									}
+
 									delete localTracks[trackId]
 									return
 								}
-								// If we're here, a new track was added
+
 								let stream = localTracks[trackId]
 								if (stream) {
-									// We've been here already
 									return
 								}
-								// if ($("#videoleft video").length === 0) {
-								// 	$("#videos").removeClass("hide")
-								// }
-								if (track.kind === "audio") {
-									// We ignore local audio tracks, they'd generate echo anyway
-									if (localVideos === 0) {
-										console.log("no video here", localVideos)
-										// No video, at least for now: show a placeholder
-										// if ($("#videoleft .no-video-container").length === 0) {
-										// 	$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-										// }
-									}
-								} else {
-									// New video track: create a stream out of it
-									localVideos++
-									// $("#videoleft .no-video-container").remove()
-									stream = new MediaStream([track])
-									localTracks[trackId] = stream
-									Janus.log("Created local stream:", stream)
-									// $("#videoleft").append('<video class="rounded centered" id="myvideo' + trackId + '" width="100%" height="100%" autoplay playsinline muted="muted"/>')
-									// Janus.attachMediaStream($("#myvideo" + trackId).get(0), stream)
-									Janus.attachMediaStream(leftRef.get(0), stream)
+								if (document.getElementById("videoleft").querySelector("video") === null) {
+									document.getElementById("videos").classList.remove("hide")
 								}
+
+								if (track.kind === "audio") {
+									if (localVideos === 0) {
+										let noVideoContainer = document.getElementById("videoleft").querySelector(".no-video-container")
+										if (!noVideoContainer) {
+											noVideoContainer = document.createElement("div")
+											noVideoContainer.className = "no-video-container"
+											noVideoContainer.innerHTML = '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>'
+											document.getElementById("videoleft").appendChild(noVideoContainer)
+										}
+									}
+								}
+
+								//   else on here
+								else {
+									setLocalVideos((prevLocalVideos) => prevLocalVideos + 1)
+
+									let noVideoContainer = document.getElementById("videoleft").querySelector(".no-video-container")
+									if (noVideoContainer) {
+										noVideoContainer.remove()
+									}
+
+									stream = new MediaStream([track])
+									setLocalTracks((prevLocalTracks) => ({ ...prevLocalTracks, [trackId]: stream }))
+									Janus.log("Created local stream:", stream)
+
+									console.log("Created local stream:", stream)
+
+									let videoElement = document.createElement("video")
+									videoElement.className = "rounded centered"
+									videoElement.id = "myvideo" + trackId
+									videoElement.width = "100%"
+									videoElement.height = "100%"
+									videoElement.autoplay = true
+									videoElement.playsInline = true
+									videoElement.muted = "muted"
+									document.getElementById("videoleft").appendChild(videoElement)
+
+									let videoElementDom = document.getElementById("myvideo" + trackId)
+									if (videoElementDom) {
+										Janus.attachMediaStream(videoElementDom, stream)
+									}
+								}
+
 								if (videocall.webrtcStuff.pc.iceConnectionState !== "completed" && videocall.webrtcStuff.pc.iceConnectionState !== "connected") {
-									console.log("videocall.webrtcStuff")
-									// $("#videoleft")
-									// 	.parent()
-									// 	.block({
-									// 		message: "<b>Publishing...</b>",
-									// 		css: {
-									// 			border: "none",
-									// 			backgroundColor: "transparent",
-									// 			color: "white"
-									// 		}
-									// 	})
+									console.log("webrtcStuff here")
+									document.getElementById("videoleft").parentNode.block({
+										message: "<b>Publishing...</b>",
+										css: {
+											border: "none",
+											backgroundColor: "transparent",
+											color: "white"
+										}
+									})
 								}
 							},
 							onremotetrack: function (track, mid, on, metadata) {
@@ -692,16 +709,18 @@ function VideoCallApp() {
 	// 	})
 	// }, [])
 
+	console.log("localVideos", localVideos)
+	console.log("localTracks", localTracks)
 	return (
 		<div id="videocall">
-			<div class="container">
-				<div class="row">
-					<div class="col-md-12">
-						<div class="pb-2 mt-4 mb-2 border-bottom">
+			<div className="container">
+				<div className="row">
+					<div className="col-md-12">
+						<div className="pb-2 mt-4 mb-2 border-bottom">
 							<h1>
-								Plugin Demo: Video Call
+								Start Video Call
 								<button
-									class="btn btn-secondary"
+									className="btn btn-secondary"
 									autocomplete="off"
 									id="start"
 									onClick={handleStart}
@@ -710,16 +729,7 @@ function VideoCallApp() {
 								</button>
 							</h1>
 						</div>
-						{/* <div
-							class="container"
-							id="details"
-						>
-							<div class="row">
-								<p>
-									Press the <code>Start</code> button above to launch the demo.
-								</p>
-							</div>
-						</div> */}
+
 						<Container
 							class="container hide"
 							id="videocall"
@@ -749,7 +759,7 @@ function VideoCallApp() {
 										<button
 											class="btn btn-success mb-1"
 											autocomplete="off"
-											id="register"
+											id="registefr"
 											onClick={registerUsername}
 										>
 											Register
@@ -782,17 +792,25 @@ function VideoCallApp() {
 											/>
 										</div>
 										<button
-											onClick={doCall}
+											onClick={() => {
+												if (callAccepted) {
+													doHangup()
+												} else {
+													doCall()
+												}
+											}}
 											class="btn btn-success mb-1"
 											autocomplete="off"
 											id="call"
 										>
-											Call
+											{callAccepted ? "Hung Up" : "Call"}
 										</button>
 									</Col>
 								)}
 							</Row>
-							<Row
+
+							{/* component video here */}
+							<div
 								id="videos"
 								class="row mt-4 hide"
 							>
@@ -802,21 +820,33 @@ function VideoCallApp() {
 											<span class="card-title">
 												Local Stream
 												<div class="btn-group btn-group-sm top-right hide">
-													<button
-														class="btn btn-danger"
-														autocomplete="off"
-														id="toggleaudio"
-													>
-														Disable audio
-													</button>
-													<button
-														class="btn btn-danger"
-														autocomplete="off"
-														id="togglevideo"
-													>
-														Disable video
-													</button>
-													<div class="btn-group btn-group-sm">
+													{audioenabled && (
+														<button
+															class="btn btn-danger"
+															autocomplete="off"
+															id="toggleaudio"
+														>
+															Disable audio
+														</button>
+													)}
+
+													{videoenabled && (
+														<button
+															class="btn btn-danger"
+															autocomplete="off"
+															id="togglevideo"
+														>
+															Disable video
+														</button>
+													)}
+
+													{localVideos === 1 && (
+														<div class="no-video-container">
+															'<i class="fa-solid fa-video fa-xl no-video-icon"></i>'<span class="no-video-text">No webcam available</span>'
+														</div>
+													)}
+
+													{/* <div class="btn-group btn-group-sm">
 														<button
 															autocomplete="off"
 															id="bitrateset"
@@ -880,30 +910,16 @@ function VideoCallApp() {
 																Cap to 2mbit
 															</a>
 														</ul>
-													</div>
+													</div> */}
 												</div>
 											</span>
 										</div>
 										<div
 											class="card-body"
 											id="videoleft"
-											ref={videoLefRef}
-										>
-											{trackID && (
-												<video
-													ref={leftRef}
-													class="rounded centered"
-													id={"myvideo" + trackID}
-													width="100%"
-													height="100%"
-													autoplay
-													playsinline
-													muted="muted"
-												/>
-											)}
-										</div>
+										></div>
 									</div>
-									<div class="input-group mt-3 mb-3">
+									{/* <div class="input-group mt-3 mb-3">
 										<span class="input-group-text">
 											<i class="fa-solid fa-cloud-arrow-up"></i>
 										</span>
@@ -916,7 +932,7 @@ function VideoCallApp() {
 											onKeyPress="return checkEnter(this, event);"
 											disabled
 										/>
-									</div>
+									</div> */}
 								</div>
 								<div class="col-md-6">
 									<div class="card">
@@ -940,9 +956,9 @@ function VideoCallApp() {
 										<div
 											class="card-body"
 											id="videoright"
-											ref={videoRightRef}
+											// ref={videoRightRef}
 										>
-											{isLoadingCall && (
+											{/* {isLoadingCall && (
 												<div class="text-center">
 													<div
 														id="spinner"
@@ -952,9 +968,9 @@ function VideoCallApp() {
 														<span class="visually-hidden">Loading...</span>'
 													</div>
 												</div>
-											)}
+											)} */}
 
-											{trackID && (
+											{/* {trackID && (
 												<video
 													ref={rightRef}
 													class="rounded centered"
@@ -964,10 +980,10 @@ function VideoCallApp() {
 													autoplay
 													playsinline
 												/>
-											)}
+											)} */}
 										</div>
 									</div>
-									<div class="input-group mt-3 mb-3">
+									{/* <div class="input-group mt-3 mb-3">
 										<span class="input-group-text">
 											<i class="fa-solid fa-cloud-arrow-down"></i>
 										</span>
@@ -977,9 +993,9 @@ function VideoCallApp() {
 											id="datarecv"
 											disabled
 										/>
-									</div>
+									</div> */}
 								</div>
-							</Row>
+							</div>
 						</Container>
 					</div>
 				</div>

@@ -42,6 +42,9 @@ export default function Root() {
 						<li>
 							<a href={`/vcall`}>VCall</a>
 						</li>
+						<li>
+							<a href={`/vcall2`}>VCall 2</a>
+						</li>
 					</ul>
 				</nav>
 			</div>

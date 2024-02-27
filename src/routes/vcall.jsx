@@ -18,13 +18,24 @@ const getQueryStringValue = (name) => {
 }
 
 function VideoCallApp() {
-	const [janus, setJanus] = useState(null)
+	const videoLefRef = useRef(null)
+	const videoRightRef = useRef(null)
+	const leftRef = useRef(null)
+	const rightRef = useRef(null)
+
+	let janus = null
+	let localTracks = {}
+
+	// const [janus, setJanus] = useState(null)
 	const [videocall, setVideocall] = useState(null)
 	const [opaqueId, setOpaqueId] = useState("videocalltest-" + Janus.randomString(12))
-	const [localTracks, setLocalTracks] = useState({})
+
+	// const [localTracks, setLocalTracks] = useState({})
+	const [trackID, setTrackID] = useState(null)
 	const [localVideos, setLocalVideos] = useState(0)
 	const [remoteTracks, setRemoteTracks] = useState({})
 	const [remoteVideos, setRemoteVideos] = useState(0)
+
 	const [bitrateTimer, setBitrateTimer] = useState(null)
 	const [audioenabled, setAudioenabled] = useState(false)
 	const [videoenabled, setVideoenabled] = useState(false)
@@ -39,6 +50,8 @@ function VideoCallApp() {
 	const [dialogcall, setDialogCall] = useState(false)
 
 	const [jsepcall, setJsepCall] = useState(false)
+
+	console.log("localTracks", localTracks)
 
 	// let videocall = null
 
@@ -85,7 +98,7 @@ function VideoCallApp() {
 	}
 
 	const onAnswerCall = () => {
-		console.log("answer here")
+		// console.log("answer here")
 		videocall.createAnswer({
 			jsep: jsepcall,
 			// We want bidirectional audio and video, if offered,
@@ -96,10 +109,13 @@ function VideoCallApp() {
 				Janus.debug("Got SDP!", jsep)
 				let body = { request: "accept" }
 				videocall.send({ message: body, jsep: jsep })
+				setDialogCall(false)
 			},
 			error: function (error) {
 				console.log("WebRTC error:", error)
 				Janus.error("WebRTC error:", error)
+				setDialogCall(false)
+
 				alert("WebRTC error... " + error)
 			}
 		})
@@ -173,7 +189,7 @@ function VideoCallApp() {
 							},
 							iceState: function (state) {
 								console.log("ICE state changed to " + state)
-								// Janus.log("ICE state changed to " + state)
+								Janus.log("ICE state changed to " + state)
 							},
 							mediaState: function (medium, on, mid) {
 								console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
@@ -277,11 +293,15 @@ function VideoCallApp() {
 											// })
 										} else if (event === "accepted") {
 											// hideAll()
-											let peer = escapeXmlTags(result["username"])
+											// let peer = escapeXmlTags(result["username"])
+											let peer = result["username"]
+											console.log("accepted here", result["username"], result)
 											if (!peer) {
 												Janus.log("Call started!")
+												console.log("Call started!")
 											} else {
 												Janus.log(peer + " accepted the call!")
+												console.log(peer + " accepted the call!")
 												// yourusername = peer
 												setYourUsername(peer)
 											}
@@ -293,6 +313,7 @@ function VideoCallApp() {
 											if (jsep) {
 												if (jsep.type === "answer") {
 													videocall.handleRemoteJsep({ jsep: jsep })
+													console.log("answer")
 												} else {
 													videocall.createAnswer({
 														jsep: jsep,
@@ -345,6 +366,7 @@ function VideoCallApp() {
 								} else {
 									// FIXME Error?
 									let error = msg["error"]
+									console.log("error here", error)
 									alert(error)
 									if (error.indexOf("already taken") > 0) {
 										console.log("error already taken")
@@ -370,146 +392,155 @@ function VideoCallApp() {
 							onlocaltrack: function (track, on) {
 								console.log("Local track " + (on ? "added" : "removed") + ":", track)
 								Janus.debug("Local track " + (on ? "added" : "removed") + ":", track)
+								// setLocalTracks(track)
 								// We use the track ID as name of the element, but it may contain invalid characters
 								let trackId = track.id.replace(/[{}]/g, "")
-								// if (!on) {
-								// 	// Track removed, get rid of the stream and the rendering
-								// 	let stream = localTracks[trackId]
-								// 	if (stream) {
-								// 		try {
-								// 			let tracks = stream.getTracks()
-								// 			for (let i in tracks) {
-								// 				let mst = tracks[i]
-								// 				if (mst !== null && mst !== undefined) mst.stop()
-								// 			}
-								// 		} catch (e) {}
-								// 	}
-								// 	if (track.kind === "video") {
-								// 		$("#myvideo" + trackId).remove()
-								// 		localVideos--
-								// 		if (localVideos === 0) {
-								// 			// No video, at least for now: show a placeholder
-								// 			if ($("#videoleft .no-video-container").length === 0) {
-								// 				$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-								// 			}
-								// 		}
-								// 	}
-								// 	delete localTracks[trackId]
-								// 	return
-								// }
-								// // If we're here, a new track was added
-								// let stream = localTracks[trackId]
-								// if (stream) {
-								// 	// We've been here already
-								// 	return
-								// }
+								setTrackID(trackId)
+								if (!on) {
+									// Track removed, get rid of the stream and the rendering
+									let stream = localTracks[trackId]
+									if (stream) {
+										try {
+											let tracks = stream.getTracks()
+											for (let i in tracks) {
+												let mst = tracks[i]
+												if (mst !== null && mst !== undefined) mst.stop()
+											}
+										} catch (e) {}
+									}
+									if (track.kind === "video") {
+										// $("#myvideo" + trackId).remove()
+										localVideos--
+										if (localVideos === 0) {
+											console.log("localvideo", localVideos)
+											// No video, at least for now: show a placeholder
+											// if ($("#videoleft .no-video-container").length === 0) {
+											// 	$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
+											// }
+										}
+									}
+									delete localTracks[trackId]
+									return
+								}
+								// If we're here, a new track was added
+								let stream = localTracks[trackId]
+								if (stream) {
+									// We've been here already
+									return
+								}
 								// if ($("#videoleft video").length === 0) {
 								// 	$("#videos").removeClass("hide")
 								// }
-								// if (track.kind === "audio") {
-								// 	// We ignore local audio tracks, they'd generate echo anyway
-								// 	if (localVideos === 0) {
-								// 		// No video, at least for now: show a placeholder
-								// 		if ($("#videoleft .no-video-container").length === 0) {
-								// 			$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-								// 		}
-								// 	}
-								// } else {
-								// 	// New video track: create a stream out of it
-								// 	localVideos++
-								// 	$("#videoleft .no-video-container").remove()
-								// 	stream = new MediaStream([track])
-								// 	localTracks[trackId] = stream
-								// 	Janus.log("Created local stream:", stream)
-								// 	$("#videoleft").append('<video class="rounded centered" id="myvideo' + trackId + '" width="100%" height="100%" autoplay playsinline muted="muted"/>')
-								// 	Janus.attachMediaStream($("#myvideo" + trackId).get(0), stream)
-								// }
-								// if (videocall.webrtcStuff.pc.iceConnectionState !== "completed" && videocall.webrtcStuff.pc.iceConnectionState !== "connected") {
-								// 	$("#videoleft")
-								// 		.parent()
-								// 		.block({
-								// 			message: "<b>Publishing...</b>",
-								// 			css: {
-								// 				border: "none",
-								// 				backgroundColor: "transparent",
-								// 				color: "white"
-								// 			}
-								// 		})
-								// }
+								if (track.kind === "audio") {
+									// We ignore local audio tracks, they'd generate echo anyway
+									if (localVideos === 0) {
+										console.log("no video here", localVideos)
+										// No video, at least for now: show a placeholder
+										// if ($("#videoleft .no-video-container").length === 0) {
+										// 	$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
+										// }
+									}
+								} else {
+									// New video track: create a stream out of it
+									localVideos++
+									// $("#videoleft .no-video-container").remove()
+									stream = new MediaStream([track])
+									localTracks[trackId] = stream
+									Janus.log("Created local stream:", stream)
+									// $("#videoleft").append('<video class="rounded centered" id="myvideo' + trackId + '" width="100%" height="100%" autoplay playsinline muted="muted"/>')
+									// Janus.attachMediaStream($("#myvideo" + trackId).get(0), stream)
+									Janus.attachMediaStream(leftRef.get(0), stream)
+								}
+								if (videocall.webrtcStuff.pc.iceConnectionState !== "completed" && videocall.webrtcStuff.pc.iceConnectionState !== "connected") {
+									console.log("videocall.webrtcStuff")
+									// $("#videoleft")
+									// 	.parent()
+									// 	.block({
+									// 		message: "<b>Publishing...</b>",
+									// 		css: {
+									// 			border: "none",
+									// 			backgroundColor: "transparent",
+									// 			color: "white"
+									// 		}
+									// 	})
+								}
 							},
 							onremotetrack: function (track, mid, on, metadata) {
 								console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 								// Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 
-								// if (!on) {
-								// 	// Track removed, get rid of the stream and the rendering
-								// 	$("#peervideo" + mid).remove()
-								// 	if (track.kind === "video") {
-								// 		remoteVideos--
-								// 		if (remoteVideos === 0) {
-								// 			// No video, at least for now: show a placeholder
-								// 			if ($("#videoright .no-video-container").length === 0) {
-								// 				$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No remote video available</span>' + "</div>")
-								// 			}
-								// 		}
-								// 	}
-								// 	delete remoteTracks[mid]
-								// 	return
-								// }
+								setRemoteTracks(track)
+								if (!on) {
+									// Track removed, get rid of the stream and the rendering
+									// $("#peervideo" + mid).remove()
+									if (track.kind === "video") {
+										remoteVideos--
+										if (remoteVideos === 0) {
+											// No video, at least for now: show a placeholder
+											// if ($("#videoright .no-video-container").length === 0) {
+											// 	$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No remote video available</span>' + "</div>")
+											// }
+										}
+									}
+									delete remoteTracks[mid]
+									return
+								}
 								// if ($("#peervideo" + mid).length > 0) return
-								// // If we're here, a new track was added
+								// If we're here, a new track was added
 								// $("#spinner").remove()
-								// let addButtons = false
+								let addButtons = false
 								// if ($("#videoright audio").length === 0 && $("#videoright video").length === 0) {
 								// 	addButtons = true
 								// 	$("#videos").removeClass("hide")
 								// }
-								// if (track.kind === "audio") {
-								// 	// New audio track: create a stream out of it, and use a hidden <audio> element
-								// 	let stream = new MediaStream([track])
-								// 	remoteTracks[mid] = stream
-								// 	Janus.log("Created remote audio stream:", stream)
-								// 	$("#videoright").append('<audio class="hide" id="peervideo' + mid + '" autoplay playsinline/>')
-								// 	Janus.attachMediaStream($("#peervideo" + mid).get(0), stream)
-								// 	if (remoteVideos === 0) {
-								// 		// No video, at least for now: show a placeholder
-								// 		if ($("#videoright .no-video-container").length === 0) {
-								// 			$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-								// 		}
-								// 	}
-								// } else {
-								// 	// New video track: create a stream out of it
-								// 	remoteVideos++
-								// 	$("#videoright .no-video-container").remove()
-								// 	let stream = new MediaStream([track])
-								// 	remoteTracks[mid] = stream
-								// 	Janus.log("Created remote video stream:", stream)
-								// 	$("#videoright").append('<video class="rounded centered" id="peervideo' + mid + '" width="100%" height="100%" autoplay playsinline/>')
-								// 	Janus.attachMediaStream($("#peervideo" + mid).get(0), stream)
-								// 	// Note: we'll need this for additional videos too
-								// 	if (!bitrateTimer) {
-								// 		$("#curbitrate").removeClass("hide")
-								// 		bitrateTimer = setInterval(function () {
-								// 			if (!$("#peervideo" + mid).get(0)) return
-								// 			// Display updated bitrate, if supported
-								// 			let bitrate = videocall.getBitrate()
-								// 			//~ Janus.debug("Current bitrate is " + videocall.getBitrate());
-								// 			$("#curbitrate").text(bitrate)
-								// 			// Check if the resolution changed too
-								// 			let width = $("#peervideo" + mid).get(0).videoWidth
-								// 			let height = $("#peervideo" + mid).get(0).videoHeight
-								// 			if (width > 0 && height > 0)
-								// 				$("#curres")
-								// 					.removeClass("hide")
-								// 					.text(width + "x" + height)
-								// 					.removeClass("hide")
-								// 		}, 1000)
-								// 	}
-								// }
-								// if (!addButtons) return
-								// // Enable audio/video buttons and bitrate limiter
-								// audioenabled = true
-								// videoenabled = true
+								if (track.kind === "audio") {
+									// New audio track: create a stream out of it, and use a hidden <audio> element
+									let stream = new MediaStream([track])
+									remoteTracks[mid] = stream
+									Janus.log("Created remote audio stream:", stream)
+									// $("#videoright").append('<audio class="hide" id="peervideo' + mid + '" autoplay playsinline/>')
+									Janus.attachMediaStream(rightRef.get(0), stream)
+									if (remoteVideos === 0) {
+										// No video, at least for now: show a placeholder
+										// if ($("#videoright .no-video-container").length === 0) {
+										// 	$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
+										// }
+									}
+								} else {
+									// New video track: create a stream out of it
+									remoteVideos++
+									// $("#videoright .no-video-container").remove()
+									let stream = new MediaStream([track])
+									remoteTracks[mid] = stream
+									Janus.log("Created remote video stream:", stream)
+									// $("#videoright").append('<video class="rounded centered" id="peervideo' + mid + '" width="100%" height="100%" autoplay playsinline/>')
+									Janus.attachMediaStream(rightRef.get(0), stream)
+									// Note: we'll need this for additional videos too
+									if (!bitrateTimer) {
+										// $("#curbitrate").removeClass("hide")
+										bitrateTimer = setInterval(function () {
+											if (!rightRef.get(0)) return
+											// Display updated bitrate, if supported
+											let bitrate = videocall.getBitrate()
+											//~ Janus.debug("Current bitrate is " + videocall.getBitrate());
+											// $("#curbitrate").text(bitrate)
+											// Check if the resolution changed too
+											let width = rightRef.get(0).videoWidth
+											let height = rightRef.get(0).videoHeight
+											if (width > 0 && height > 0) {
+												console.log("test")
+											}
+											// $("#curres")
+											// 	.removeClass("hide")
+											// 	.text(width + "x" + height)
+											// 	.removeClass("hide")
+										}, 1000)
+									}
+								}
+								if (!addButtons) return
+								// Enable audio/video buttons and bitrate limiter
+								audioenabled = true
+								videoenabled = true
 								// $("#toggleaudio")
 								// 	.removeAttr("disabled")
 								// 	.click(function () {
@@ -561,10 +592,10 @@ function VideoCallApp() {
 								// console.log("oncleanup")
 								setMyUsername(null)
 								setYourUsername(null)
-								setLocalTracks({})
-								setLocalVideos(0)
-								setRemoteTracks({})
-								setRemoteVideos(0)
+								// setLocalTracks({})
+								// setLocalVideos(0)
+								// setRemoteTracks({})
+								// setRemoteVideos(0)
 								setIsRegister(false)
 								setIsStart(false)
 								// $("#videoleft").empty().parent().unblock()
@@ -856,7 +887,21 @@ function VideoCallApp() {
 										<div
 											class="card-body"
 											id="videoleft"
-										></div>
+											ref={videoLefRef}
+										>
+											{trackID && (
+												<video
+													ref={leftRef}
+													class="rounded centered"
+													id={"myvideo" + trackID}
+													width="100%"
+													height="100%"
+													autoplay
+													playsinline
+													muted="muted"
+												/>
+											)}
+										</div>
 									</div>
 									<div class="input-group mt-3 mb-3">
 										<span class="input-group-text">
@@ -895,19 +940,30 @@ function VideoCallApp() {
 										<div
 											class="card-body"
 											id="videoright"
+											ref={videoRightRef}
 										>
 											{isLoadingCall && (
 												<div class="text-center">
-													' +
 													<div
 														id="spinner"
 														class="spinner-border"
 														role="status"
 													>
-														'<span class="visually-hidden">Loading...</span>'
+														<span class="visually-hidden">Loading...</span>'
 													</div>
-													'
 												</div>
+											)}
+
+											{trackID && (
+												<video
+													ref={rightRef}
+													class="rounded centered"
+													id="peervideo' + mid + '"
+													width="100%"
+													height="100%"
+													autoplay
+													playsinline
+												/>
 											)}
 										</div>
 									</div>

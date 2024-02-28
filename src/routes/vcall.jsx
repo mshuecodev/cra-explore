@@ -5,8 +5,8 @@ import DialogSimple from "../components/Dialog"
 
 const server = "https://webrtc.sedap.app/janus"
 // const server = "http://172.31.205.114:8088/janus"
-const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
-// const iceServers = []
+// const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
+const iceServers = []
 
 const VideoCall = () => {
 	const localVideoRef = useRef(null)
@@ -266,7 +266,7 @@ const VideoCall = () => {
 							bitrateTimer = null
 						}
 					},
-					onlocalstream: function (track, on) {
+					onlocaltrack: function (track, on) {
 						console.log("Local track " + (on ? "added" : "removed") + ":", track)
 						setVideoID(true)
 						let trackId = track.id.replace(/[{}]/g, "")
@@ -349,7 +349,7 @@ const VideoCall = () => {
 							setIsPublishing(true)
 						}
 					},
-					onremotestream: function (track, mid, on, metadata) {
+					onremotetrack: function (track, mid, on, metadata) {
 						console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 
 						if (!on) {
@@ -434,6 +434,11 @@ const VideoCall = () => {
 					},
 					oncleanup: function () {
 						console.log(" ::: Got a cleanup notification :::")
+						setLocalTracks({})
+						setLocalVideos(0)
+						setRemoteTracks({})
+						setRemoteVideos(0)
+						setVideocall(null)
 						// $("#videoleft").empty().parent().unblock()
 						// $("#videoright").empty()
 						// $("#callee").empty().addClass("hide")

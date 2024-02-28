@@ -25,7 +25,7 @@ export default function FullVideoCallPage() {
 	const [trackId, setTrackID] = useState(null)
 	const [mid, setMid] = useState(null)
 	// const [localTracks, setLocalTracks] = useState({})
-	const [localVideos, setLocalVideos] = useState(0)
+	// const [localVideos, setLocalVideos] = useState(0)
 
 	const [remoteTracks, setRemoteTracks] = useState({})
 	const [remoteVideos, setRemoteVideos] = useState(0)
@@ -88,29 +88,23 @@ export default function FullVideoCallPage() {
 								setIsStart(true)
 							},
 							error: function (error) {
-								Janus.error("  -- Error attaching plugin...", error)
 								alert("  -- Error attaching plugin... " + error)
 							},
 							consentDialog: function (on) {
 								console.log("Consent dialog should be " + (on ? "on" : "off") + " now")
-								Janus.debug("Consent dialog should be " + (on ? "on" : "off") + " now")
 							},
 							iceState: function (state) {
 								console.log("ICE state changed to " + state)
-								Janus.log("ICE state changed to " + state)
 							},
 							mediaState: function (medium, on, mid) {
 								console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
-								Janus.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
 							},
 							webrtcState: function (on) {
 								console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
-								Janus.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
 								// $("#videoleft").parent().unblock()
 							},
 							slowLink: function (uplink, lost, mid) {
-								console.warn("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
-								Janus.warn("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
+								console.log("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
 							},
 							onmessage: function (msg, jsep) {
 								console.log(" ::: Got a message :::", msg)
@@ -212,12 +206,14 @@ export default function FullVideoCallPage() {
 									videocall.hangup()
 								}
 							},
-							onlocalstream: function (track, on) {
-								let localTracks = {}
+							onlocaltrack: function (track, on) {
 								console.log("Local track " + (on ? "added" : "removed") + ":", track)
+
+								let localTracks = {}
+								let localVideos = 0
+
 								let trackId = track.id.replace(/[{}]/g, "")
-								setTrackID(trackId)
-								console.log("localTracks", localTracks)
+
 								if (!on) {
 									// Track removed, get rid of the stream and the rendering
 									let stream = localTracks[trackId]
@@ -230,15 +226,25 @@ export default function FullVideoCallPage() {
 											}
 										} catch (e) {}
 									}
+
 									if (track.kind === "video") {
-										console.log('track.kind === "video"')
+										document.getElementById(`myvideo${trackId}`).remove()
+
 										// $('#myvideo' + trackId).remove();
 										localVideos--
 										if (localVideos === 0) {
-											// No video, at least for now: show a placeholder
-											// if ($("#videoleft .no-video-container").length === 0) {
-											// 	$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-											// }
+											let noVideoContainer = document.querySelector("#videoleft .no-video-container")
+
+											console.log("noVideoContainer", noVideoContainer)
+											if (noVideoContainer === null) {
+												document.getElementById("videoleft").insertAdjacentHTML(
+													"beforeend",
+													`<div class="no-video-container">
+													 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+													 <span class="no-video-text">No webcam available</span>
+												   </div>`
+												)
+											}
 										}
 									}
 									delete localTracks[trackId]
@@ -250,48 +256,59 @@ export default function FullVideoCallPage() {
 									// We've been here already
 									return
 								}
-								// if ($("#videoleft video").length === 0) {
-								// 	$("#videos").removeClass("hide")
-								// }
-								setVideoenabled(true)
+
+								if (document.querySelectorAll("#videoleft video").length === 0) {
+									document.getElementById("videos").classList.remove("hide")
+								}
+
+								// setVideoenabled(true)
 								if (track.kind === "audio") {
-									console.log('track.kind === "audio"')
 									// We ignore local audio tracks, they'd generate echo anyway
 									if (localVideos === 0) {
 										// setNoVideo(true)
 										// No video, at least for now: show a placeholder
-										// if ($("#videoleft .no-video-container").length === 0) {
-										// 	$("#videoleft").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-										// }
+										let noVideoContainer = document.querySelector("#videoleft .no-video-container")
+										if (noVideoContainer === null) {
+											document.getElementById("videoleft").insertAdjacentHTML(
+												"beforeend",
+												`<div class="no-video-container">
+												 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+												 <span class="no-video-text">No webcam available</span>
+											   </div>`
+											)
+										}
 									}
 								} else {
 									// New video track: create a stream out of it
 									localVideos++
-									// $("#videoleft .no-video-container").remove()
+									document.querySelector("#videoleft .no-video-container")?.remove()
+
 									stream = new MediaStream([track])
 									localTracks[trackId] = stream
-									Janus.log("Created local stream:", stream)
-									console.log("Created local stream:", stream)
-									setVideoenabled(true)
 
-									// $("#videoleft").append('<video class="rounded centered" id="myvideo' + trackId + '" width="100%" height="100%" autoplay playsinline muted="muted"/>')
-									Janus.attachMediaStream(localRef.current, stream)
+									Janus.log("Created local stream:", stream)
+									// setVideoenabled(true)
+
+									document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
+
+									let videoElement = document.getElementById(`myvideo${trackId}`)
+
+									if (videoElement) {
+										Janus.attachMediaStream(videoElement, stream)
+									}
 								}
 								if (videocall.webrtcStuff.pc.iceConnectionState !== "completed" && videocall.webrtcStuff.pc.iceConnectionState !== "connected") {
-									console.log("trying to connected")
-									// $("#videoleft")
-									// 	.parent()
-									// 	.block({
-									// 		message: "<b>Publishing...</b>",
-									// 		css: {
-									// 			border: "none",
-									// 			backgroundColor: "transparent",
-									// 			color: "white"
-									// 		}
-									// 	})
+									document.getElementById("videoleft").parentElement.block({
+										message: "<b>Publishing...</b>",
+										css: {
+											border: "none",
+											backgroundColor: "transparent",
+											color: "white"
+										}
+									})
 								}
 							},
-							onremotestream: function (track, mid, on, metadata) {
+							onremotetrack: function (track, mid, on, metadata) {
 								console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 								Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 								setMid(mid)
@@ -509,6 +526,7 @@ export default function FullVideoCallPage() {
 						<Button
 							variant="primary"
 							onClick={handleStart}
+							id="start"
 						>
 							Start
 						</Button>
@@ -526,6 +544,7 @@ export default function FullVideoCallPage() {
 							lg={6}
 							md={6}
 							id="login"
+							// className="invisible"
 						>
 							<div className=" mt-3 mb-1">
 								<Form.Label>Username</Form.Label>
@@ -561,6 +580,7 @@ export default function FullVideoCallPage() {
 							lg={6}
 							md={6}
 							id="phone"
+							// className="invisible"
 						>
 							<div className=" mt-3 mb-1">
 								<Form.Label>Other Username</Form.Label>
@@ -593,108 +613,81 @@ export default function FullVideoCallPage() {
 					)}
 				</Row>
 
-				{videoenabled && (
-					<Row
-						className="mt-4"
-						id="videos"
+				<Row
+					className="mt-4"
+					id="videos"
+				>
+					<Col
+						lg={6}
+						md={6}
 					>
-						<Col
-							lg={6}
-							md={6}
-						>
-							<Card>
-								<Card.Title>Local Stream</Card.Title>
-								<Card.Header>
-									<ButtonGroup aria-label="Basic example">
-										<Button variant="danger">Disable audio</Button>
-										<Button variant="danger">Disable video</Button>
-										<Dropdown>
-											<Dropdown.Toggle
-												variant="success"
-												id="bitrateset"
-											>
-												Bandwidth
-											</Dropdown.Toggle>
+						<Card>
+							<Card.Title>Local Stream</Card.Title>
+							<Card.Header>
+								<ButtonGroup aria-label="Basic example">
+									<Button
+										variant="danger"
+										id="toggleaudio"
+									>
+										Disable audio
+									</Button>
+									<Button
+										variant="danger"
+										id="togglevideo"
+									>
+										Disable video
+									</Button>
+									<Dropdown>
+										<Dropdown.Toggle
+											variant="success"
+											id="bitrateset"
+										>
+											Bandwidth
+										</Dropdown.Toggle>
 
-											<Dropdown.Menu>
-												<Dropdown.Item href="#">No limit</Dropdown.Item>
-												<Dropdown.Item href="#">Cap to 128kbit</Dropdown.Item>
-												<Dropdown.Item href="#">Cap to 256kbit</Dropdown.Item>
-												<Dropdown.Item href="#">Cap to 512kbit</Dropdown.Item>
-												<Dropdown.Item href="#">Cap to 1mbit</Dropdown.Item>
-												<Dropdown.Item href="#">Cap to 1.5mbit</Dropdown.Item>
-												<Dropdown.Item href="#">Cap to 2mbit</Dropdown.Item>
-											</Dropdown.Menu>
-										</Dropdown>
-									</ButtonGroup>
-								</Card.Header>
-								<Card.Body>
-									<div id="videoleft">
-										{videoenabled && (
-											<video
-												ref={localRef}
-												className="rounded centered"
-												id={`myvideo ${trackId}`}
-												width="100%"
-												height="100%"
-												autoplay
-												playsinline
-												muted="muted"
-											/>
-										)}
-									</div>
-								</Card.Body>
-							</Card>
-						</Col>
-						<Col
-							lg={6}
-							md={6}
-						>
-							<Card>
-								<Card.Title>Remote Stream</Card.Title>
-								<Card.Header>
-									<span
-										className="badge bg-info hide"
-										id="callee"
-									></span>
-									<span
-										className="badge bg-primary hide"
-										id="curres"
-									></span>
-									<span
-										className="badge bg-info hide"
-										id="curbitrate"
-									></span>
-								</Card.Header>
-								<Card.Body>
-									<div id="videoright">
-										{isCalling && (
-											<div className="text-center">
-												<div
-													id="spinner"
-													className="spinner-border"
-													role="status"
-												>
-													<span className="visually-hidden">Loading...</span>
-												</div>
-											</div>
-										)}
-
-										<video
-											ref={remoteRef}
-											className="rounded centered"
-											id={`peervideo ${mid}`}
-											width="100%"
-											height="100%"
-											autoplay
-											playsinline
-										/>
-									</div>
-								</Card.Body>
-							</Card>
-						</Col>
-					</Row>
-				)}
+										<Dropdown.Menu>
+											<Dropdown.Item href="#">No limit</Dropdown.Item>
+											<Dropdown.Item href="#">Cap to 128kbit</Dropdown.Item>
+											<Dropdown.Item href="#">Cap to 256kbit</Dropdown.Item>
+											<Dropdown.Item href="#">Cap to 512kbit</Dropdown.Item>
+											<Dropdown.Item href="#">Cap to 1mbit</Dropdown.Item>
+											<Dropdown.Item href="#">Cap to 1.5mbit</Dropdown.Item>
+											<Dropdown.Item href="#">Cap to 2mbit</Dropdown.Item>
+										</Dropdown.Menu>
+									</Dropdown>
+								</ButtonGroup>
+							</Card.Header>
+							<Card.Body>
+								<div id="videoleft"></div>
+							</Card.Body>
+						</Card>
+					</Col>
+					<Col
+						lg={6}
+						md={6}
+					>
+						<Card>
+							<Card.Title>Remote Stream</Card.Title>
+							<Card.Header>
+								<span
+									className="badge bg-info hide"
+									id="callee"
+								></span>
+								<span
+									className="badge bg-primary hide"
+									id="curres"
+								></span>
+								<span
+									className="badge bg-info hide"
+									id="curbitrate"
+								></span>
+							</Card.Header>
+							<Card.Body>
+								<div id="videoright"></div>
+							</Card.Body>
+						</Card>
+					</Col>
+				</Row>
 			</Container>
 
 			<DialogSimple

@@ -5,7 +5,8 @@ import DialogSimple from "../components/Dialog"
 
 const server = "https://webrtc.sedap.app/janus"
 // const server = "http://localhost:8088/janus"
-const iceServers = []
+// const iceServers = []
+const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
 
 const getQueryStringValue = (name) => {
 	name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]")
@@ -211,7 +212,7 @@ export default function FullVideoCallPage() {
 									videocall.hangup()
 								}
 							},
-							onlocaltrack: function (track, on) {
+							onlocalstream: function (track, on) {
 								let localTracks = {}
 								console.log("Local track " + (on ? "added" : "removed") + ":", track)
 								let trackId = track.id.replace(/[{}]/g, "")
@@ -290,7 +291,7 @@ export default function FullVideoCallPage() {
 									// 	})
 								}
 							},
-							onremotetrack: function (track, mid, on, metadata) {
+							onremotestream: function (track, mid, on, metadata) {
 								console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 								Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
 								setMid(mid)
@@ -425,6 +426,8 @@ export default function FullVideoCallPage() {
 						window.location.reload()
 					}
 				})
+
+				setJanus(janus)
 			}
 		})
 	}

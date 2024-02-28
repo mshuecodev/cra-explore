@@ -3,8 +3,8 @@ import { Button, Container, Row, Col, Form, Card, ButtonGroup, Dropdown } from "
 import Janus from "../janus"
 import DialogSimple from "../components/Dialog"
 
-// const server = "https://webrtc.sedap.app/janus"
-const server = "http://localhost:8088/janus"
+const server = "https://webrtc.sedap.app/janus"
+// const server = "http://localhost:8088/janus"
 const iceServers = []
 
 const getQueryStringValue = (name) => {
@@ -16,11 +16,13 @@ const getQueryStringValue = (name) => {
 
 export default function FullVideoCallPage() {
 	const localRef = useRef(null)
+	const remoteRef = useRef(null)
 	const [janus, setJanus] = useState(null)
 	const [videocall, setVideocall] = useState(null)
 	const [opaqueId, setOpaqueId] = useState("videocalltest-" + Janus.randomString(12))
 
 	const [trackId, setTrackID] = useState(null)
+	const [mid, setMid] = useState(null)
 	// const [localTracks, setLocalTracks] = useState({})
 	const [localVideos, setLocalVideos] = useState(0)
 
@@ -29,6 +31,11 @@ export default function FullVideoCallPage() {
 
 	const [audioenabled, setAudioenabled] = useState(false)
 	const [videoenabled, setVideoenabled] = useState(false)
+	const [audioRightEnabled, setAudioRightEnabled] = useState(false)
+	const [videoRightEnabled, setVideoRightEnabled] = useState(false)
+
+	const [bitrateTimer, setBitrateTimer] = useState(null)
+
 	const [noVideo, setNoVideo] = useState(false)
 	const [doSimulcast, setDoSimulcast] = useState(getQueryStringValue("simulcast") === "yes" || getQueryStringValue("simulcast") === "true")
 	const [simulcastStarted, setSimulcastStarted] = useState(false)
@@ -285,6 +292,116 @@ export default function FullVideoCallPage() {
 							},
 							onremotetrack: function (track, mid, on, metadata) {
 								console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
+								Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
+								setMid(mid)
+
+								if (!on) {
+									// Track removed, get rid of the stream and the rendering
+									// $("#peervideo" + mid).remove()
+									if (track.kind === "video") {
+										remoteVideos--
+										if (remoteVideos === 0) {
+											// No video, at least for now: show a placeholder
+											// if ($("#videoright .no-video-container").length === 0) {
+											// 	$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No remote video available</span>' + "</div>")
+											// }
+										}
+									}
+									delete remoteTracks[mid]
+									return
+								}
+								// if ($("#peervideo" + mid).length > 0) return
+								// If we're here, a new track was added
+								// $("#spinner").remove()
+								let addButtons = false
+								// if ($("#videoright audio").length === 0 && $("#videoright video").length === 0) {
+								// 	addButtons = true
+								// 	$("#videos").removeClass("hide")
+								// }
+								if (track.kind === "audio") {
+									// New audio track: create a stream out of it, and use a hidden <audio> element
+									let stream = new MediaStream([track])
+									remoteTracks[mid] = stream
+									Janus.log("Created remote audio stream:", stream)
+									// $("#videoright").append('<audio class="hide" id="peervideo' + mid + '" autoplay playsinline/>')
+									// Janus.attachMediaStream($("#peervideo" + mid).get(0), stream)
+									Janus.attachMediaStream(remoteRef.current, stream)
+
+									if (remoteVideos === 0) {
+										// No video, at least for now: show a placeholder
+										// if ($("#videoright .no-video-container").length === 0) {
+										// 	$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
+										// }
+									}
+								} else {
+									// New video track: create a stream out of it
+									remoteVideos++
+									// $("#videoright .no-video-container").remove()
+									let stream = new MediaStream([track])
+									remoteTracks[mid] = stream
+									Janus.log("Created remote video stream:", stream)
+									// $("#videoright").append('<video class="rounded centered" id="peervideo' + mid + '" width="100%" height="100%" autoplay playsinline/>')
+									Janus.attachMediaStream(remoteRef.current, stream)
+									// Janus.attachMediaStream($("#peervideo" + mid).get(0), stream)
+									// Note: we'll need this for additional videos too
+									if (!bitrateTimer) {
+										// $("#curbitrate").removeClass("hide")
+
+										let _bitrateTimer = setInterval(function () {
+											if (!remoteRef.current) return
+											// Display updated bitrate, if supported
+											let bitrate = videocall.getBitrate()
+											//~ Janus.debug("Current bitrate is " + videocall.getBitrate());
+											// $("#curbitrate").text(bitrate)
+											// Check if the resolution changed too
+											let width = remoteRef.current.videoWidth
+											let height = remoteRef.current.videoHeight
+											// if (width > 0 && height > 0)
+											// 	$("#curres")
+											// 		.removeClass("hide")
+											// 		.text(width + "x" + height)
+											// 		.removeClass("hide")
+										}, 1000)
+
+										setBitrateTimer(_bitrateTimer)
+									}
+								}
+								if (!addButtons) return
+								// Enable audio/video buttons and bitrate limiter
+								// audioenabled = true
+								// videoenabled = true
+								// $("#toggleaudio")
+								// 	.removeAttr("disabled")
+								// 	.click(function () {
+								// 		audioenabled = !audioenabled
+								// 		if (audioenabled) $("#toggleaudio").html("Disable audio").removeClass("btn-success").addClass("btn-danger")
+								// 		else $("#toggleaudio").html("Enable audio").removeClass("btn-danger").addClass("btn-success")
+								// 		videocall.send({ message: { request: "set", audio: audioenabled } })
+								// 	})
+								// $("#togglevideo")
+								// 	.removeAttr("disabled")
+								// 	.click(function () {
+								// 		videoenabled = !videoenabled
+								// 		if (videoenabled) $("#togglevideo").html("Disable video").removeClass("btn-success").addClass("btn-danger")
+								// 		else $("#togglevideo").html("Enable video").removeClass("btn-danger").addClass("btn-success")
+								// 		videocall.send({ message: { request: "set", video: videoenabled } })
+								// 	})
+								// $("#toggleaudio").parent().removeClass("hide")
+								// $("#bitrate a")
+								// 	.removeAttr("disabled")
+								// 	.click(function () {
+								// 		$(".dropdown-toggle").dropdown("hide")
+								// 		let id = $(this).attr("id")
+								// 		let bitrate = parseInt(id) * 1000
+								// 		if (bitrate === 0) {
+								// 			Janus.log("Not limiting bandwidth via REMB")
+								// 		} else {
+								// 			Janus.log("Capping bandwidth to " + bitrate + " via REMB")
+								// 		}
+								// 		$("#bitrateset").text($(this).text()).parent().removeClass("open")
+								// 		videocall.send({ message: { request: "set", bitrate: bitrate } })
+								// 		return false
+								// 	})
 							},
 							oncleanup: function () {
 								console.log(" ::: Got a cleanup notification :::")
@@ -294,30 +411,6 @@ export default function FullVideoCallPage() {
 								setYourUsername(null)
 								setIsRegister(false)
 								setIsStart(false)
-								// $("#videoleft").empty().parent().unblock()
-								// $("#videoright").empty()
-								// $("#callee").empty().addClass("hide")
-								// yourusername = null
-								// $("#curbitrate").addClass("hide")
-								// $("#curres").addClass("hide")
-								// $("#videos").addClass("hide")
-								// $("#toggleaudio").attr("disabled", true)
-								// $("#togglevideo").attr("disabled", true)
-								// $("#bitrate").attr("disabled", true)
-								// $("#curbitrate").addClass("hide")
-								// $("#curres").addClass("hide")
-								// if (bitrateTimer) clearInterval(bitrateTimer)
-								// bitrateTimer = null
-								// $("#videos").addClass("hide")
-								// simulcastStarted = false
-								// $("#simulcast").remove()
-								// $("#peer").removeAttr("disabled").val("")
-								// $("#call").removeAttr("disabled").html("Call").removeClass("btn-danger").addClass("btn-success").unbind("click").click(doCall)
-
-								// setLocalTracks({})
-								// setLocalVideos(0)
-								// setRemoteTracks({})
-								// setRemoteVideos(0)
 							}
 						})
 					},
@@ -583,6 +676,16 @@ export default function FullVideoCallPage() {
 												</div>
 											</div>
 										)}
+
+										<video
+											ref={remoteRef}
+											className="rounded centered"
+											id={`peervideo ${mid}`}
+											width="100%"
+											height="100%"
+											autoplay
+											playsinline
+										/>
 									</div>
 								</Card.Body>
 							</Card>

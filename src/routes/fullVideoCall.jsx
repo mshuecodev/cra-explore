@@ -22,7 +22,7 @@ export default function FullVideoCallPage() {
 	const [videocall, setVideocall] = useState(null)
 	const [opaqueId, setOpaqueId] = useState("videocalltest-" + Janus.randomString(12))
 
-	const [trackId, setTrackID] = useState(null)
+	// const [trackId, setTrackID] = useState(null)
 	const [mid, setMid] = useState(null)
 	// const [localTracks, setLocalTracks] = useState({})
 	// const [localVideos, setLocalVideos] = useState(0)
@@ -310,8 +310,9 @@ export default function FullVideoCallPage() {
 							},
 							onremotetrack: function (track, mid, on, metadata) {
 								console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
-								Janus.debug("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
-								setMid(mid)
+								// setMid(mid)
+								let remoteTracks = {}
+								let remoteVideos = 0
 
 								if (!on) {
 									// Track removed, get rid of the stream and the rendering
@@ -319,47 +320,72 @@ export default function FullVideoCallPage() {
 									if (track.kind === "video") {
 										remoteVideos--
 										if (remoteVideos === 0) {
+											let noVideoContainer = document.querySelector("#videoright .no-video-container")
 											// No video, at least for now: show a placeholder
-											// if ($("#videoright .no-video-container").length === 0) {
-											// 	$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No remote video available</span>' + "</div>")
-											// }
+											if (noVideoContainer === null) {
+												document.getElementById("videoright").insertAdjacentHTML(
+													"beforeend",
+													`<div class="no-video-container">
+													 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+													 <span class="no-video-text">No webcam available</span>
+												   </div>`
+												)
+											}
 										}
 									}
 									delete remoteTracks[mid]
 									return
 								}
+
+								let peerVideo = document.getElementById("peervideo" + mid)
+								if (peerVideo.length > 0) return
 								// if ($("#peervideo" + mid).length > 0) return
 								// If we're here, a new track was added
 								// $("#spinner").remove()
+								document.getElementById("spinner").remove()
 								let addButtons = false
-								// if ($("#videoright audio").length === 0 && $("#videoright video").length === 0) {
-								// 	addButtons = true
-								// 	$("#videos").removeClass("hide")
-								// }
+
+								if (document.querySelectorAll("#videoright audio").length === 0 && document.querySelectorAll("#videoright audio").video === 0) {
+									addButtons = true
+									document.getElementById("spinner").removeClass("hide")
+								}
+
 								if (track.kind === "audio") {
 									// New audio track: create a stream out of it, and use a hidden <audio> element
 									let stream = new MediaStream([track])
 									remoteTracks[mid] = stream
-									Janus.log("Created remote audio stream:", stream)
-									// $("#videoright").append('<audio class="hide" id="peervideo' + mid + '" autoplay playsinline/>')
-									// Janus.attachMediaStream($("#peervideo" + mid).get(0), stream)
+									console.log("Created remote audio stream:", stream)
+									document.getElementById("videoright").insertAdjacentHTML("beforeend", `<audio class="hide" id=${"peervideo" + mid}  autoplay playsinline/>`)
 									Janus.attachMediaStream(remoteRef.current, stream)
 
+									let audioElement = document.getElementById(`peervideo${mid}`)
+									Janus.attachMediaStream(audioElement, stream)
 									if (remoteVideos === 0) {
+										let noVideoContainer = document.querySelector("#videoright .no-video-container")
 										// No video, at least for now: show a placeholder
-										// if ($("#videoright .no-video-container").length === 0) {
-										// 	$("#videoright").append('<div class="no-video-container">' + '<i class="fa-solid fa-video fa-xl no-video-icon"></i>' + '<span class="no-video-text">No webcam available</span>' + "</div>")
-										// }
+										if (noVideoContainer === null) {
+											document.getElementById("videoright").insertAdjacentHTML(
+												"beforeend",
+												`<div class="no-video-container">
+													 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+													 <span class="no-video-text">No webcam available</span>
+												   </div>`
+											)
+										}
 									}
 								} else {
 									// New video track: create a stream out of it
 									remoteVideos++
-									// $("#videoright .no-video-container").remove()
+									document.querySelector("#videoright .no-video-container")?.remove()
+
 									let stream = new MediaStream([track])
 									remoteTracks[mid] = stream
 									Janus.log("Created remote video stream:", stream)
 									// $("#videoright").append('<video class="rounded centered" id="peervideo' + mid + '" width="100%" height="100%" autoplay playsinline/>')
-									Janus.attachMediaStream(remoteRef.current, stream)
+
+									document.getElementById("videoright").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
+									let videoElement = document.getElementById(`peervideo${mid}`)
+									Janus.attachMediaStream(videoElement, stream)
 									// Janus.attachMediaStream($("#peervideo" + mid).get(0), stream)
 									// Note: we'll need this for additional videos too
 									if (!bitrateTimer) {
@@ -370,15 +396,16 @@ export default function FullVideoCallPage() {
 											// Display updated bitrate, if supported
 											let bitrate = videocall.getBitrate()
 											//~ Janus.debug("Current bitrate is " + videocall.getBitrate());
-											// $("#curbitrate").text(bitrate)
+											document.getElementById("curbitrate").text(bitrate)
 											// Check if the resolution changed too
-											let width = remoteRef.current.videoWidth
-											let height = remoteRef.current.videoHeight
-											// if (width > 0 && height > 0)
-											// 	$("#curres")
-											// 		.removeClass("hide")
-											// 		.text(width + "x" + height)
-											// 		.removeClass("hide")
+											let width = videoElement.videoWidth
+											let height = videoElement.videoHeight
+											if (width > 0 && height > 0)
+												document
+													.getElementById("curres")
+													.removeClass("hide")
+													.text(width + "x" + height)
+													.removeClass("hide")
 										}, 1000)
 
 										setBitrateTimer(_bitrateTimer)

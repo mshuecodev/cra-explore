@@ -88,7 +88,7 @@ var defaultExtension = {
 	}
 }
 
-Janus.useDefaultDependencies = function (deps) {
+Janus.UseDefaultDependencies = function (deps) {
 	let f = (deps && deps.fetch) || fetch
 	let p = (deps && deps.Promise) || Promise
 	let socketCls = (deps && deps.WebSocket) || WebSocket
@@ -418,7 +418,7 @@ Janus.init = function (options) {
 		}
 		Janus.log("Initializing library")
 
-		let usedDependencies = options.dependencies || Janus.useDefaultDependencies()
+		let usedDependencies = options.dependencies || Janus.UseDefaultDependencies()
 		Janus.isArray = usedDependencies.isArray
 		Janus.webRTCAdapter = usedDependencies.webRTCAdapter
 		Janus.httpAPICall = usedDependencies.httpAPICall

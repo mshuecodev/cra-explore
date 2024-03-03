@@ -108,34 +108,7 @@
 					<div
 						class="container"
 						id="details"
-					>
-						<div class="row">
-							<div class="alert alert-primary mt-2 mb-5">
-								Want to learn more about the <strong>VideoCall</strong> plugin? Check the
-								<a
-									target="_blank"
-									href="https://janus.conf.meetecho.com/docs/videocall"
-									>Documentation</a
-								>.
-							</div>
-						</div>
-						<div class="row">
-							<div class="col-md-12">
-								<h3>Demo details</h3>
-								<p>This Video Call demo is basically an example of how you can achieve a scenario like the famous AppRTC demo but with media flowing through Janus. It basically is an extension to the Echo Test demo, where in this case the media packets and statistics are forwarded between the two involved peers.</p>
-								<p>
-									Using the demo is simple. Just choose a simple username to register at the plugin, and then either call another user (provided you know which username was picked) or share your username with a friend and wait for a call. At that point, you'll be in a video call with the remote peer, and you'll have the same controls the Echo Test demo provides to try and control the media: that is, a button to mute/unmute your audio and video, and a knob to try and limit your
-									bandwidth. If the browser supports it, you'll also get a view of the bandwidth currently used by your peer for the video stream.
-								</p>
-								<p>
-									If you're interested in testing how simulcasting can be used within the context of this sample videocall application, just pass the <code>?simulcast=true</code> query string to the url of this page and reload it. If you're using a browser that does support simulcasting (Chrome or Firefox) and the call will end up using VP8, you'll send multiple qualities of the video you're capturing. Notice that simulcasting will only occur if the browser thinks there is
-									enough bandwidth, so you'll have to play with the Bandwidth selector to increase it. New buttons to play with the feature will automatically appear for your peer; at the same time, if your peer enabled simulcasting new buttons will appear for you when watching the remote stream. Notice that no simulcast support is needed for watching, only for publishing.
-								</p>
-								<p>A very simple chat based on Data Channels is available as well: just use the text area under your local video to send messages to your peer. Incoming messages will be displayed below the remote video instead.</p>
-								<p>Press the <code>Start</code> button above to launch the demo.</p>
-							</div>
-						</div>
-					</div>
+					></div>
 					<div
 						class="container hide"
 						id="videocall"

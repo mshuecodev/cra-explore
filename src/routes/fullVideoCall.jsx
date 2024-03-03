@@ -3,10 +3,10 @@ import { Button, Container, Row, Col, Form, Card, ButtonGroup, Dropdown } from "
 import Janus from "../janus"
 import DialogSimple from "../components/Dialog"
 
-const server = "https://webrtc.sedap.app/janus"
-// const server = "http://localhost:8088/janus"
-// const iceServers = []
-const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
+// const server = "https://webrtc.sedap.app/janus"
+const server = "http://172.31.205.114:8088/janus"
+const iceServers = []
+// const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
 
 const getQueryStringValue = (name) => {
 	name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]")
@@ -133,11 +133,9 @@ export default function FullVideoCallPage() {
 											newPlugin.send({ message: { request: "list" } })
 										} else if (event === "calling") {
 											console.log("Waiting for the peer to answer...")
-											Janus.log("Waiting for the peer to answer...")
 											// TODO Any ringtone?
 											alert("Waiting for the peer to answer...")
 										} else if (event === "incomingcall") {
-											Janus.log("Incoming call from " + result["username"] + "!")
 											console.log("Incoming call from " + result["username"] + "!")
 
 											let _yourusername = result["username"]
@@ -147,7 +145,6 @@ export default function FullVideoCallPage() {
 										} else if (event === "accepted") {
 											let peer = result["username"]
 											if (!peer) {
-												Janus.log("Call started!")
 												console.log("Call started!")
 											} else {
 												console.log(peer + " accepted the call!")
@@ -158,49 +155,51 @@ export default function FullVideoCallPage() {
 											if (jsep) {
 												newPlugin.handleRemoteJsep({ jsep: jsep })
 											}
-										} else if (event === "update") {
-											// An 'update' event may be used to provide renegotiation attempts
-											if (jsep) {
-												if (jsep.type === "answer") {
-													newPlugin.handleRemoteJsep({ jsep: jsep })
-													console.log("answer")
-												} else {
-													newPlugin.createAnswer({
-														jsep: jsep,
-														// We want bidirectional audio and video, if offered,
-														// plus data channels too if they were negotiated
-														tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
-														success: function (jsep) {
-															console.log("Got SDP!", jsep)
-															let body = { request: "set" }
-															setJsepCall(jsep)
-															newPlugin.send({ message: body, jsep: jsep })
-														},
-														error: function (error) {
-															console.log("WebRTC error:", error)
-															alert("WebRTC error... " + error.message)
-														}
-													})
-												}
-											}
-										} else if (event === "hangup") {
-											console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
-
-											newPlugin.hangup()
-											doHangup()
-										} else if (event === "simulcast") {
-											// Is simulcast in place?
-											let substream = result["substream"]
-											let temporal = result["temporal"]
-											if ((substream !== null && substream !== undefined) || (temporal !== null && temporal !== undefined)) {
-												if (!simulcastStarted) {
-													simulcastStarted = true
-													addSimulcastButtons(result["videocodec"] === "vp8")
-												}
-												// We just received notice that there's been a switch, update the buttons
-												updateSimulcastButtons(substream, temporal)
-											}
 										}
+										// else if (event === "update") {
+										// 	// An 'update' event may be used to provide renegotiation attempts
+										// 	if (jsep) {
+										// 		if (jsep.type === "answer") {
+										// 			newPlugin.handleRemoteJsep({ jsep: jsep })
+										// 			console.log("answer")
+										// 		} else {
+										// 			newPlugin.createAnswer({
+										// 				jsep: jsep,
+										// 				// We want bidirectional audio and video, if offered,
+										// 				// plus data channels too if they were negotiated
+										// 				tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+										// 				success: function (jsep) {
+										// 					console.log("Got SDP!", jsep)
+										// 					let body = { request: "set" }
+										// 					setJsepCall(jsep)
+										// 					newPlugin.send({ message: body, jsep: jsep })
+										// 				},
+										// 				error: function (error) {
+										// 					console.log("WebRTC error:", error)
+										// 					alert("WebRTC error... " + error.message)
+										// 				}
+										// 			})
+										// 		}
+										// 	}
+										// }
+										// else if (event === "hangup") {
+										// 	console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
+
+										// 	newPlugin.hangup()
+										// 	doHangup()
+										// } else if (event === "simulcast") {
+										// 	// Is simulcast in place?
+										// 	let substream = result["substream"]
+										// 	let temporal = result["temporal"]
+										// 	if ((substream !== null && substream !== undefined) || (temporal !== null && temporal !== undefined)) {
+										// 		if (!simulcastStarted) {
+										// 			simulcastStarted = true
+										// 			addSimulcastButtons(result["videocodec"] === "vp8")
+										// 		}
+										// 		// We just received notice that there's been a switch, update the buttons
+										// 		updateSimulcastButtons(substream, temporal)
+										// 	}
+										// }
 									}
 								} else {
 									let error = msg["error"]
@@ -208,7 +207,7 @@ export default function FullVideoCallPage() {
 									newPlugin.hangup()
 								}
 							},
-							onlocaltrack: function (track, on) {
+							onlocaltrack: async function (track, on) {
 								console.log("Local track " + (on ? "added" : "removed") + ":", track)
 
 								let localTracks = {}
@@ -299,14 +298,18 @@ export default function FullVideoCallPage() {
 									}
 								}
 								if (newPlugin.webrtcStuff.pc.iceConnectionState !== "completed" && newPlugin.webrtcStuff.pc.iceConnectionState !== "connected") {
-									document.getElementById("videoleft").parentElement.block({
-										message: "<b>Publishing...</b>",
-										css: {
-											border: "none",
-											backgroundColor: "transparent",
-											color: "white"
-										}
-									})
+									console.log("publishing here")
+									// let parentElement = document.getElementById("videoleft").parentElement
+									// if (parentElement) {
+									// 	parentElement.block({
+									// 		message: "<b>Publishing...</b>",
+									// 		css: {
+									// 			border: "none",
+									// 			backgroundColor: "transparent",
+									// 			color: "white"
+									// 		}
+									// 	})
+									// }
 								}
 							},
 							onremotetrack: function (track, mid, on, metadata) {
@@ -315,11 +318,11 @@ export default function FullVideoCallPage() {
 								let remoteVideos = 0
 
 								let peerElement = document.getElementById(`peervideo${mid}`)
-								console.log("peerElement", peerElement)
 
 								if (!on) {
 									// Track removed, get rid of the stream and the rendering
 									// peerElement.remove()
+									// document.getElementById(`peervideo${mid}`).remove()
 
 									setPeerVideo(null)
 									if (track.kind === "video") {
@@ -359,12 +362,13 @@ export default function FullVideoCallPage() {
 									let stream = new MediaStream([track])
 									remoteTracks[mid] = stream
 									console.log("Created remote audio stream:", stream)
-									document.getElementById("videoright").insertAdjacentHTML("beforeend", `<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`)
-
-									// Janus.attachMediaStream(document.getElementById(`peervideo${mid}`), stream)
+									document.getElementById("videoright").insertAdjacentHTML(
+										"beforeend",
+										`
+									<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`
+									)
 
 									let audioElement = document.getElementById(`peervideo${mid}`)
-									console.log("audioElement", audioElement)
 									if (audioElement) {
 										Janus.attachMediaStream(audioElement, stream)
 									}
@@ -383,6 +387,7 @@ export default function FullVideoCallPage() {
 										}
 									}
 								} else {
+									setPeerVideo(mid)
 									// New video track: create a stream out of it
 									remoteVideos++
 									document.querySelector("#videoright .no-video-container")?.remove()
@@ -391,11 +396,13 @@ export default function FullVideoCallPage() {
 									remoteTracks[mid] = stream
 									console.log("Created remote video stream:", stream)
 
-									document.getElementById("videoright").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`)
-									setPeerVideo(mid)
-									let videoElement = document.getElementById(`peervideo${mid}`)
+									document.getElementById("videoright").insertAdjacentHTML(
+										"beforeend",
+										`
+									<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
+									)
 
-									console.log("videoElement", videoElement)
+									let videoElement = document.getElementById(`peervideo${mid}`)
 
 									if (videoElement) {
 										Janus.attachMediaStream(videoElement, stream)
@@ -498,15 +505,15 @@ export default function FullVideoCallPage() {
 		videocall.send({ message: register })
 	}
 
-	const doCall = () => {
-		videocall.createOffer({
+	const doCall = async () => {
+		await videocall.createOffer({
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
 			success: function (jsep) {
 				console.debug("Got SDP!", jsep)
+				setJsepCall(jsep)
 
-				Janus.debug("Got SDP!", jsep)
-				setAudioenabled(true)
-				setVideoenabled(true)
+				// setAudioenabled(true)
+				// setVideoenabled(true)
 				let body = { request: "call", username: yourUsername }
 				videocall.send({ message: body, jsep: jsep })
 				setIsCalling(true)
@@ -536,14 +543,12 @@ export default function FullVideoCallPage() {
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
 			success: function (jsep) {
 				console.log("Got SDP!", jsep)
-				Janus.debug("Got SDP!", jsep)
 				let body = { request: "accept" }
 				videocall.send({ message: body, jsep: jsep })
 				setDialogCall(false)
 			},
 			error: function (error) {
 				console.log("WebRTC error:", error)
-				Janus.error("WebRTC error:", error)
 				setDialogCall(false)
 
 				alert("WebRTC error... " + error)
@@ -726,7 +731,19 @@ export default function FullVideoCallPage() {
 								></span>
 							</Card.Header>
 							<Card.Body>
-								<div id="videoright"></div>
+								<div id="videoright">
+									{isCalling && (
+										<div className="text-center">
+											<div
+												id="spinner"
+												className="spinner-border"
+												role="status"
+											>
+												<span className="visually-hidden">Loading...</span>
+											</div>
+										</div>
+									)}
+								</div>
 							</Card.Body>
 						</Card>
 					</Col>

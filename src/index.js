@@ -12,6 +12,7 @@ import Home from "./routes/home"
 import Room from "./routes/room"
 import VCall from "./routes/vcall"
 import FullVideoCallPage from "./routes/fullVideoCall"
+import VideoCallFixed from "./routes/videocallFixed"
 
 const router = createBrowserRouter([
 	{
@@ -29,12 +30,12 @@ const router = createBrowserRouter([
 	},
 	{
 		path: "vcall",
-		element: <VCall />
-	},
-	{
-		path: "vcall2",
 		element: <FullVideoCallPage />
 	}
+	// {
+	// 	path: "vcall2",
+	// 	element: <FullVideoCallPage />
+	// }
 ])
 
 const root = ReactDOM.createRoot(document.getElementById("root"))

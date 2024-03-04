@@ -3,7 +3,8 @@ import { Button, Container, Row, Col, Form, Card, ButtonGroup, Dropdown } from "
 import Janus from "../janus"
 import DialogSimple from "../components/Dialog"
 
-const server = "https://webrtc.sedap.app/janus"
+// const server = "https://webrtc.sedap.app/janus"
+const server = "http://172.31.205.114:8088/janus"
 const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
 
 const getQueryStringValue = (name) => {

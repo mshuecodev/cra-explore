@@ -510,6 +510,7 @@ export default function FullVideoCallPage() {
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
 			success: function (jsep) {
 				console.debug("Got SDP!", jsep)
+				setVideoenabled(true)
 				setJsepCall(jsep)
 
 				// setAudioenabled(true)
@@ -533,6 +534,8 @@ export default function FullVideoCallPage() {
 		videocall.send({ message: hangup })
 		videocall.hangup()
 		setYourUsername(null)
+		setVideoenabled(false)
+		setVideoRightEnabled(false)
 	}
 
 	const doAnswerCall = () => {
@@ -543,6 +546,7 @@ export default function FullVideoCallPage() {
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
 			success: function (jsep) {
 				console.log("Got SDP!", jsep)
+				setVideoRightEnabled(true)
 				let body = { request: "accept" }
 				videocall.send({ message: body, jsep: jsep })
 				setDialogCall(false)
@@ -710,6 +714,7 @@ export default function FullVideoCallPage() {
 							</Card.Body>
 						</Card>
 					</Col>
+
 					<Col
 						lg={6}
 						md={6}

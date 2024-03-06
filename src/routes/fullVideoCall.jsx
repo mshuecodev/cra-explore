@@ -54,6 +54,7 @@ export default function FullVideoCallPage() {
 	const [dialogcall, setDialogCall] = useState(false)
 
 	const [jsepcall, setJsepCall] = useState(false)
+	const [listUser, setListUser] = useState([])
 
 	const addSimulcastButtons = (temporal) => {
 		// ...
@@ -66,6 +67,30 @@ export default function FullVideoCallPage() {
 	const onCloseDialogCall = () => {
 		setDialogCall(false)
 		// doHangup()
+	}
+
+	const handleCall = (row) => {
+		videocall.createOffer({
+			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
+			success: function (jsep) {
+				console.debug("Got SDP!", jsep)
+				setVideoenabled(true)
+				setJsepCall(jsep)
+
+				// setAudioenabled(true)
+				// setVideoenabled(true)
+				let body = { request: "call", username: row }
+				videocall.send({ message: body, jsep: jsep })
+				setIsCalling(true)
+				setYourUsername(row)
+			},
+			error: function (error) {
+				Janus.error("WebRTC error...", error)
+				console.log("WebRTC error...", error)
+
+				setIsCalling(false)
+			}
+		})
 	}
 
 	const handleStart = () => {
@@ -114,6 +139,7 @@ export default function FullVideoCallPage() {
 							onmessage: function (msg, jsep) {
 								console.log(" ::: Got a message :::", msg)
 								let result = msg["result"]
+								setListUser(result?.list)
 
 								if (result) {
 									if (result["list"]) {
@@ -545,14 +571,14 @@ export default function FullVideoCallPage() {
 			// plus data channels too if they were negotiated
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
 			success: function (jsep) {
-				console.log("Got SDP!", jsep)
+				console.log("answer success!", jsep)
 				setVideoRightEnabled(true)
 				let body = { request: "accept" }
 				videocall.send({ message: body, jsep: jsep })
 				setDialogCall(false)
 			},
 			error: function (error) {
-				console.log("WebRTC error:", error)
+				console.log("answer error:", error)
 				setDialogCall(false)
 
 				alert("WebRTC error... " + error)
@@ -584,6 +610,21 @@ export default function FullVideoCallPage() {
 						</Button>
 					</Col>
 				</Row>
+
+				{listUser?.map((row) => {
+					return (
+						<Row className="mt-4">
+							<Button
+								disabled={myusername === row}
+								style={{ width: 300 }}
+								variant="info"
+								onClick={() => handleCall(row)}
+							>
+								{row === myusername && "ME: "} {row}
+							</Button>
+						</Row>
+					)
+				})}
 
 				{/* #videocall */}
 
@@ -627,7 +668,7 @@ export default function FullVideoCallPage() {
 						</Col>
 					)}
 
-					{isRegister && (
+					{/* {isRegister && (
 						<Col
 							lg={6}
 							md={6}
@@ -662,7 +703,7 @@ export default function FullVideoCallPage() {
 								Hung Up
 							</Button>
 						</Col>
-					)}
+					)} */}
 				</Row>
 
 				<Row

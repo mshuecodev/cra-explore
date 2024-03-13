@@ -33,18 +33,18 @@ export default function Root() {
 				</div>
 				<nav>
 					<ul>
-						<li>
+						{/* <li>
 							<a href={`/home`}>Home</a>
 						</li>
 						<li>
 							<a href={`/room`}>Room</a>
-						</li>
+						</li> */}
 						<li>
 							<a href={`/vcall`}>VCall</a>
 						</li>
-						<li>
+						{/* <li>
 							<a href={`/vcall2`}>Vcall Local</a>
-						</li>
+						</li> */}
 					</ul>
 				</nav>
 			</div>

@@ -3,16 +3,15 @@ import ReactDOM from "react-dom/client"
 import { createBrowserRouter, RouterProvider } from "react-router-dom"
 import "./index.css"
 import reportWebVitals from "./reportWebVitals"
-import "bootstrap/dist/css/bootstrap.min.css"
 
 // page
 import Root from "./routes/root"
 import ErrorPage from "./error-page"
-import Home from "./routes/home"
-import Room from "./routes/room"
-import VCall from "./routes/vcall"
+// import Home from "./routes/home"
+// import Room from "./routes/room"
+// import VCall from "./routes/vcall"
 import FullVideoCallPage from "./routes/fullVideoCall"
-import VideoCallFixed from "./routes/videocallFixed"
+// import VideoCallFixed from "./routes/videocallFixed"
 
 const router = createBrowserRouter([
 	{
@@ -20,22 +19,22 @@ const router = createBrowserRouter([
 		element: <Root />,
 		errorElement: <ErrorPage />
 	},
-	{
-		path: "home",
-		element: <Home />
-	},
-	{
-		path: "room",
-		element: <Room />
-	},
+	// {
+	// 	path: "home",
+	// 	element: <Home />
+	// },
+	// {
+	// 	path: "room",
+	// 	element: <Room />
+	// },
 	{
 		path: "vcall",
 		element: <FullVideoCallPage />
-	},
-	{
-		path: "vcall2",
-		element: <VideoCallFixed />
 	}
+	// {
+	// 	path: "vcall2",
+	// 	element: <VideoCallFixed />
+	// }
 	// {
 	// 	path: "vcall2",
 	// 	element: <FullVideoCallPage />

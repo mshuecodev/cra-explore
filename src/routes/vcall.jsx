@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react"
 import { Button, Container, Row, Col, Form, Card, ButtonGroup, Dropdown } from "react-bootstrap"
-import Janus from "../janus"
+import Janus from "../janus2"
 import DialogSimple from "../components/Dialog"
 
 const server = "https://webrtc.sedap.app/janus"

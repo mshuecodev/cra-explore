@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { Container, Row, Col } from "react-bootstrap"
-import Janus from "../janus"
+import Janus from "../janus2"
 import "../App.css"
 import offline from "../images/offline.jpg"
 import $ from "jquery"

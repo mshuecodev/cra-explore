@@ -31,6 +31,10 @@ const router = createBrowserRouter([
 	{
 		path: "vcall",
 		element: <FullVideoCallPage />
+	},
+	{
+		path: "vcall2",
+		element: <VideoCallFixed />
 	}
 	// {
 	// 	path: "vcall2",

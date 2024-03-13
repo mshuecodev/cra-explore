@@ -3,10 +3,11 @@ import { Button, Container, Row, Col, Form, Card, ButtonGroup, Dropdown } from "
 import Janus from "../janus"
 import DialogSimple from "../components/Dialog"
 
-const server = "https://webrtc.sedap.app/janus"
+// const server = "https://webrtc.sedap.app/janus"
+const server = "https://webrtc.teknologi40.online/janus"
 // const server = "http://172.31.205.114:8088/janus"
-const iceServers = []
-// const iceServers = [{ urls: "stun:stun.l.google.com:19302" }]
+// const iceServers = []
+const iceServers = [{ urls: "stun:stun.teknologi40.online" }]
 
 const getQueryStringValue = (name) => {
 	name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]")
@@ -569,7 +570,11 @@ export default function FullVideoCallPage() {
 			jsep: jsepcall,
 			// We want bidirectional audio and video, if offered,
 			// plus data channels too if they were negotiated
-			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+			tracks: [
+				{ type: "audio", capture: true, recv: true },
+				{ type: "video", capture: true, recv: true }
+				// { type: "data" }
+			],
 			success: function (jsep) {
 				console.log("answer success!", jsep)
 				setVideoRightEnabled(true)

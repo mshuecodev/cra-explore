@@ -25,6 +25,7 @@
  */
 
 import adapter from "webrtc-adapter"
+
 // List of sessions
 Janus.sessions = new Map()
 
@@ -218,7 +219,6 @@ Janus.UseDefaultDependencies = function (deps) {
 // }
 
 // Helper function to convert a deprecated media object to a tracks array
-
 Janus.mediaToTracks = function (media) {
 	let tracks = []
 	if (!media) {

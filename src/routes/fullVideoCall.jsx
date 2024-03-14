@@ -38,6 +38,23 @@ export default function FullVideoCallPage() {
 	const [videoEnabled, setVideoenabled] = useState(false)
 	const [audioEnabled, setAudioEnabled] = useState(false)
 
+	console.log("audioEnabled", audioEnabled)
+	console.log("videoEnabled", videoEnabled)
+
+	function toggleAudio(e) {
+		let enable = e
+		console.log(enable)
+		setAudioEnabled(enable)
+		videocall.send({ message: { request: "set", audio: enable } })
+	}
+
+	function togglevideo(e) {
+		let enable = e
+		console.log(enable)
+		setAudioEnabled(enable)
+		videocall.send({ message: { request: "set", video: enable } })
+	}
+
 	function requestListUser(pluginHandle) {
 		if (videocall) {
 			videocall.send({ message: { request: "list" } })
@@ -177,6 +194,9 @@ export default function FullVideoCallPage() {
 												if (jsep) {
 													newPlugin.handleRemoteJsep({ jsep: jsep })
 												}
+											} else if (event === "hangup") {
+												console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
+												newPlugin.hangup()
 											}
 										} else {
 											let error = msg["error"]
@@ -369,6 +389,8 @@ export default function FullVideoCallPage() {
 
 											if (videoElement) {
 												Janus.attachMediaStream(videoElement, stream)
+												setAudioEnabled(true)
+												setVideoenabled(true)
 											}
 										}
 										if (!addButtons) return
@@ -473,13 +495,13 @@ export default function FullVideoCallPage() {
 									<IconButton
 										aria-label="delete"
 										id="toggleaudio"
-										// onClick={() => toggleAudio(true)}
+										onClick={() => toggleAudio(false)}
 									>
 										<VolumeUpIcon />
 									</IconButton>
 								) : (
 									<IconButton
-										// onClick={() => toggleAudio(false)}
+										onClick={() => toggleAudio(true)}
 										aria-label="delete"
 										id="toggleaudio"
 									>
@@ -491,9 +513,9 @@ export default function FullVideoCallPage() {
 									<IconButton
 										aria-label="delete"
 										id="togglevideo"
-										// onClick={() => {
-										// 	togglevideo(true)
-										// }}
+										onClick={() => {
+											togglevideo(false)
+										}}
 									>
 										<VideocamIcon />
 									</IconButton>
@@ -501,9 +523,9 @@ export default function FullVideoCallPage() {
 									<IconButton
 										aria-label="delete"
 										id="togglevideo"
-										// onClick={() => {
-										// 	togglevideo(false)
-										// }}
+										onClick={() => {
+											togglevideo(true)
+										}}
 									>
 										<VideocamOffIcon />
 									</IconButton>

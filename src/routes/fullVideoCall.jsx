@@ -11,8 +11,8 @@ import FullScreenDialog from "../components/FullDialog"
 const server = "https://webrtc.sedap.app/janus"
 // const server = "https://webrtc.teknologi40.online/janus"
 // const server = "http://172.31.205.114:8088/janus"
-// const iceServers = []
-const iceServers = [{ urls: "stun:stun.teknologi40.online" }]
+const iceServers = []
+// const iceServers = [{ urls: "stun:stun.teknologi40.online" }]
 
 const getQueryStringValue = (name) => {
 	name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]")
@@ -396,9 +396,10 @@ export default function FullVideoCallPage() {
 				>
 					{listUser
 						?.filter((y) => y !== localUser)
-						.map((x) => {
+						.map((x, index) => {
 							return (
 								<Grid
+									key={index}
 									item
 									md={12}
 									sm={12}
@@ -423,6 +424,17 @@ export default function FullVideoCallPage() {
 								</Grid>
 							)
 						})}
+
+					{listUser?.length === 0 && (
+						<Grid
+							item
+							md={12}
+							sm={12}
+							xs={12}
+						>
+							<Typography textAlign={"center"}>Tidak ada user aktif.</Typography>
+						</Grid>
+					)}
 				</Grid>
 			)}
 
@@ -434,12 +446,14 @@ export default function FullVideoCallPage() {
 				// sx={{ height: "100vh" }}
 			>
 				<Grid
+					item
 					xs={12}
 					// sx={{ flex: 1, height: "100%" }}
 				>
 					<div id="videoleft"></div>
 				</Grid>
 				<Grid
+					item
 					xs={12}
 					// sx={{ flex: 1, height: "100%" }}
 				>

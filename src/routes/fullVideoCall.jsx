@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
-import { Grid, Card, CardContent, Typography, IconButton, Box, CardActionArea } from "@mui/material"
+import { Grid, Card, CardContent, Typography, IconButton, Box, CardActionArea, Button } from "@mui/material"
 import Janus from "../janus"
 import VolumeUpIcon from "@mui/icons-material/VolumeUp"
 import VolumeOffIcon from "@mui/icons-material/VolumeOff"
@@ -11,8 +11,15 @@ import FullScreenDialog from "../components/FullDialog"
 const server = "https://webrtc.sedap.app/janus"
 // const server = "https://webrtc.teknologi40.online/janus"
 // const server = "http://172.31.205.114:8088/janus"
-const iceServers = []
-// const iceServers = [{ urls: "stun:stun.teknologi40.online" }]
+const iceServers = [
+	{
+		urls: "stun:stun.voip.eutelia.it:3478",
+		urls: "turn:103.153.60.156:3478",
+		username: "sedap",
+		credential: "sedap00"
+	}
+]
+// const iceServers = []
 
 const getQueryStringValue = (name) => {
 	name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]")
@@ -30,6 +37,7 @@ export default function FullVideoCallPage() {
 
 	const [listUser, setListUser] = useState([])
 	const [openDialogCall, setOpenDialogCall] = useState(false)
+	const [isIncoming, setIncomingCall] = useState(false)
 	const [isLoading, setIsLoading] = useState(false)
 	const [userToCall, setUsertoCall] = useState(null)
 	const [localUser, setLocalUser] = useState(null)
@@ -37,9 +45,6 @@ export default function FullVideoCallPage() {
 	const [callStarted, setCallStarted] = useState(false)
 	const [videoEnabled, setVideoenabled] = useState(false)
 	const [audioEnabled, setAudioEnabled] = useState(false)
-
-	console.log("audioEnabled", audioEnabled)
-	console.log("videoEnabled", videoEnabled)
 
 	function toggleAudio(e) {
 		let enable = e
@@ -64,14 +69,34 @@ export default function FullVideoCallPage() {
 	}
 
 	function doRegister(pluginHandle) {
-		let staticUser = "TESTING"
+		let staticUser = "NAKES"
 		let register = { request: "register", username: staticUser }
 		setLocalUser(staticUser)
+
 		if (videocall) {
 			videocall.send({ message: register })
 		} else {
 			pluginHandle.send({ message: register })
 		}
+	}
+
+	function doAnswer() {
+		// console.log("vcall", videocall, jsepcall)
+		videocall?.createAnswer({
+			jsep: jsepcall,
+			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+			success: function (jsep) {
+				console.log("Answer here Got SDP!", jsep)
+				let body = { request: "accept" }
+				videocall?.send({ message: body, jsep: jsep })
+				setIncomingCall(false)
+				setVideoenabled(true)
+				setAudioEnabled(true)
+			},
+			error: function (error) {
+				console.log("Answer WebRTC error:", error)
+			}
+		})
 	}
 
 	function doHangup() {
@@ -137,6 +162,7 @@ export default function FullVideoCallPage() {
 										setVideocall(pluginHandle)
 										newPlugin = pluginHandle
 
+										// doRegister(pluginHandle)
 										requestListUser(pluginHandle)
 									},
 									error: function (error) {
@@ -178,19 +204,19 @@ export default function FullVideoCallPage() {
 
 												let yourusername = result["username"]
 												setUsertoCall(yourusername)
-												// setDialogCall(true)
+												setIncomingCall(true)
 												setJsepCall(jsep)
 											} else if (event === "accepted") {
 												let peer = result["username"]
 												if (!peer) {
 													console.log("Call started!")
 												} else {
+													setUsertoCall(peer)
 													console.log(peer + " accepted the call!")
 													// setUsertoCall(peer)
 												}
 												// Video call can start
 												setCallStarted(true)
-												console.log("jsep", jsep, jsepcall)
 												if (jsep) {
 													newPlugin.handleRemoteJsep({ jsep: jsep })
 												}
@@ -200,8 +226,14 @@ export default function FullVideoCallPage() {
 											}
 										} else {
 											let error = msg["error"]
-											alert(error)
-											newPlugin.hangup()
+											let errCode = msg["error_code"]
+											console.log("error here", msg)
+											if (errCode === 476) {
+												console.log("username already taken!")
+											} else {
+												newPlugin.hangup()
+											}
+											// alert(error)
 										}
 									},
 									onlocaltrack: async function (track, on) {
@@ -394,8 +426,21 @@ export default function FullVideoCallPage() {
 											}
 										}
 										if (!addButtons) return
+									},
+									oncleanup: function () {
+										setOpenDialogCall(false)
+										window.location.reload()
+										console.log(" ::: Got a cleanup notification :::")
+										// doHangup()
 									}
 								})
+							},
+							error: function (error) {
+								console.log(error)
+								window.location.reload()
+							},
+							destroyed: function () {
+								window.location.reload()
 							}
 						})
 						setJanus(janus)
@@ -406,146 +451,183 @@ export default function FullVideoCallPage() {
 		}
 	}, [janus])
 
-	console.log(callStarted)
-
 	return (
-		<div style={{ width: "100%" }}>
-			{!openDialogCall && (
+		<Grid
+			container
+			sx={{ overflow: "hidden", maxWidth: "100%" }}
+		>
+			{isIncoming && (
 				<Grid
-					container
-					sx={{ m: 2, width: "100%" }}
-					gap={2}
+					item
+					sm={12}
+					xs={12}
 				>
-					{listUser
-						?.filter((y) => y !== localUser)
-						.map((x, index) => {
-							return (
-								<Grid
-									key={index}
-									item
-									md={12}
-									sm={12}
-									xs={12}
-								>
-									<Box sx={{ maxWidth: "100%" }}>
-										<Card
-											variant="outlined"
-											sx={{ minWidth: "80%" }}
-										>
-											<CardActionArea
-												onClick={() => {
-													doCall(x)
-												}}
-											>
-												<CardContent>
-													<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{x}</Typography>
-												</CardContent>
-											</CardActionArea>
-										</Card>
-									</Box>
-								</Grid>
-							)
-						})}
-
-					{listUser?.length === 0 && (
-						<Grid
-							item
-							md={12}
-							sm={12}
-							xs={12}
+					<Grid
+						container
+						justifyContent={"center"}
+						alignItems={"center"}
+						gap={2}
+						sx={{ position: "fixed", bottom: 50 }}
+					>
+						<Button
+							variant="contained"
+							color="success"
+							onClick={doAnswer}
 						>
-							<Typography textAlign={"center"}>Tidak ada user aktif.</Typography>
-						</Grid>
-					)}
+							Answer
+						</Button>
+						<Button
+							variant="contained"
+							color="error"
+							onClick={doHangup}
+						>
+							Hang Up
+						</Button>
+					</Grid>
 				</Grid>
 			)}
-
 			<Grid
-				sx={{ my: 2 }}
-				container
-				id="videos"
-				flexDirection={"column"}
-				// sx={{ height: "100vh" }}
+				item
+				md={12}
+				lg={12}
+				xs={12}
 			>
-				<Grid
-					item
-					xs={12}
-					// sx={{ flex: 1, height: "100%" }}
-				>
-					<div id="videoleft"></div>
-				</Grid>
-				<Grid
-					item
-					xs={12}
-					// sx={{ flex: 1, height: "100%" }}
-				>
-					<div id="videoright"></div>
-				</Grid>
-				<Grid
-					item
-					xs={12}
-				>
-					<Box>
-						{openDialogCall && (
-							<Box
-								mt={2}
-								sx={{ display: "flex", flexDirection: "row", gap: 2, alignItems: "center", justifyContent: "center" }}
+				{!openDialogCall && (
+					<Grid
+						container
+						sx={{ m: 2, width: "100%" }}
+						gap={2}
+					>
+						{listUser
+							?.filter((y) => y !== localUser)
+							.map((x, index) => {
+								return (
+									<Grid
+										key={index}
+										item
+										md={12}
+										sm={12}
+										xs={12}
+									>
+										<Box sx={{ width: "90%" }}>
+											<Card
+												variant="outlined"
+												sx={{ minWidth: "80%" }}
+											>
+												<CardActionArea
+													onClick={() => {
+														doCall(x)
+													}}
+												>
+													<CardContent>
+														<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{x}</Typography>
+													</CardContent>
+												</CardActionArea>
+											</Card>
+										</Box>
+									</Grid>
+								)
+							})}
+
+						{listUser?.filter((y) => y !== localUser)?.length === 0 && (
+							<Grid
+								item
+								md={12}
+								sm={12}
+								xs={12}
 							>
-								{audioEnabled ? (
-									<IconButton
-										aria-label="delete"
-										id="toggleaudio"
-										onClick={() => toggleAudio(false)}
-									>
-										<VolumeUpIcon />
-									</IconButton>
-								) : (
-									<IconButton
-										onClick={() => toggleAudio(true)}
-										aria-label="delete"
-										id="toggleaudio"
-									>
-										<VolumeOffIcon />
-									</IconButton>
-								)}
-
-								{videoEnabled ? (
-									<IconButton
-										aria-label="delete"
-										id="togglevideo"
-										onClick={() => {
-											togglevideo(false)
-										}}
-									>
-										<VideocamIcon />
-									</IconButton>
-								) : (
-									<IconButton
-										aria-label="delete"
-										id="togglevideo"
-										onClick={() => {
-											togglevideo(true)
-										}}
-									>
-										<VideocamOffIcon />
-									</IconButton>
-								)}
-
-								<IconButton
-									aria-label="delete"
-									color="error"
-									onClick={() => {
-										doHangup()
-									}}
-								>
-									<CallEndIcon />
-								</IconButton>
-							</Box>
+								<Typography textAlign={"center"}>Tidak ada user aktif.</Typography>
+							</Grid>
 						)}
-					</Box>
+					</Grid>
+				)}
+
+				<Grid
+					sx={{ my: 2 }}
+					container
+					id="videos"
+					flexDirection={"column"}
+					// sx={{ height: "100vh" }}
+				>
+					<Grid
+						item
+						xs={12}
+						// sx={{ flex: 1, height: "100%" }}
+					>
+						<div id="videoleft"></div>
+					</Grid>
+					<Grid
+						item
+						xs={12}
+						// sx={{ flex: 1, height: "100%" }}
+					>
+						<div id="videoright"></div>
+					</Grid>
+					<Grid
+						item
+						xs={12}
+					>
+						<Box>
+							{openDialogCall && (
+								<Box
+									mt={2}
+									sx={{ display: "flex", flexDirection: "row", gap: 2, alignItems: "center", justifyContent: "center" }}
+								>
+									{audioEnabled ? (
+										<IconButton
+											aria-label="delete"
+											id="toggleaudio"
+											onClick={() => toggleAudio(false)}
+										>
+											<VolumeUpIcon />
+										</IconButton>
+									) : (
+										<IconButton
+											onClick={() => toggleAudio(true)}
+											aria-label="delete"
+											id="toggleaudio"
+										>
+											<VolumeOffIcon />
+										</IconButton>
+									)}
+
+									{videoEnabled ? (
+										<IconButton
+											aria-label="delete"
+											id="togglevideo"
+											onClick={() => {
+												togglevideo(false)
+											}}
+										>
+											<VideocamIcon />
+										</IconButton>
+									) : (
+										<IconButton
+											aria-label="delete"
+											id="togglevideo"
+											onClick={() => {
+												togglevideo(true)
+											}}
+										>
+											<VideocamOffIcon />
+										</IconButton>
+									)}
+
+									<IconButton
+										aria-label="delete"
+										color="error"
+										onClick={() => {
+											doHangup()
+										}}
+									>
+										<CallEndIcon />
+									</IconButton>
+								</Box>
+							)}
+						</Box>
+					</Grid>
 				</Grid>
-			</Grid>
-			{/* <FullScreenDialog
+				{/* <FullScreenDialog
 				open={openDialogCall}
 				title={userToCall}
 				handleClose={onCloseDialogCall}
@@ -565,6 +647,7 @@ export default function FullVideoCallPage() {
 					</>
 				}
 			/> */}
-		</div>
+			</Grid>
+		</Grid>
 	)
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Grid, Card, CardContent, Typography, IconButton, Box, CardActionArea, Button } from "@mui/material"
 import Janus from "../janus"
 import VolumeUpIcon from "@mui/icons-material/VolumeUp"
@@ -78,9 +78,9 @@ export default function FullVideoCallPage() {
 	}
 
 	function doRegister(pluginHandle) {
-		let staticUser = "NAKES"
-		let register = { request: "register", username: dataUser }
-		setLocalUser(dataUser)
+		let staticUser = JSON.stringify(dataUser) || "TESTING USER"
+		let register = { request: "register", username: staticUser }
+		setLocalUser(staticUser)
 
 		if (videocall) {
 			videocall.send({ message: register })
@@ -145,673 +145,366 @@ export default function FullVideoCallPage() {
 		setOpenDialogCall(false)
 	}
 
-	const handleMessage = (event) => {
-		console.log(event)
-		// const dataFromReactNative = JSON.parse(event.data)
-		// console.log("Data received from React Native:", dataFromReactNative)
-		// setDataUser(dataFromReactNative)
+	const handleMessageFromWebView = async (event) => {
+		try {
+			// if (event.origin !== "react-native://") {
+			// 	// Ignore messages from other origins
+			// 	return
+			// }
+
+			if (event.data?.type) {
+				console.log("else here")
+			} else {
+				// const parseData = typeof event.data === "string" ? JSON.parse(event.data) : {}
+				// console.log("Message from React Native WebView:", event.data)
+				setDataUser(event.data)
+			}
+
+			// alert(JSON.stringify(event.data))
+		} catch (error) {
+			console.error("Error parsing message:", error)
+			// alert("Error parsing message:", error)
+		}
 	}
+	useEffect(() => {
+		window.addEventListener("message", handleMessageFromWebView)
+		return () => {
+			window.removeEventListener("message", handleMessageFromWebView)
+		}
+	}, [])
 
 	useEffect(() => {
-		const handleMessage = (event) => {
-			try {
-				console.log("event.data", event.data, event)
-				let userProfile = event.data
-
-				if (event.data) {
-					const dataFromReactNative = JSON.parse(event.data)
-					setDataUser(dataFromReactNative)
-					if (!janus) {
-						const initJanus = async () => {
-							Janus.init({
-								debug: true,
-								// dependencies: Janus.UseDefaultDependencies()
-								callback: () => {
-									if (!Janus.isWebrtcSupported()) {
-										alert("No WebRTC support... ")
-										return
-									}
-
-									let janus = new Janus({
-										server: server,
-										iceServers: iceServers,
-										success: function () {
-											let newPlugin = null
-											janus.attach({
-												plugin: "janus.plugin.videocall",
-												opaqueId: opaqueId,
-												success: function (pluginHandle) {
-													console.log("pluginHandle", "Plugin attached! (" + pluginHandle.getPlugin() + ", id=" + pluginHandle.getId() + ")")
-
-													setVideocall(pluginHandle)
-													newPlugin = pluginHandle
-
-													// doRegister(pluginHandle)
-													requestListUser(pluginHandle)
-												},
-												error: function (error) {
-													alert("  -- Error attaching plugin... " + error)
-												},
-												consentDialog: function (on) {
-													console.log("Consent dialog should be " + (on ? "on" : "off") + " now")
-												},
-												iceState: function (state) {
-													console.log("ICE state changed to " + state)
-												},
-												mediaState: function (medium, on, mid) {
-													console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
-												},
-												webrtcState: function (on) {
-													console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
-													// $("#videoleft").parent().unblock()
-												},
-												slowLink: function (uplink, lost, mid) {
-													console.log("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
-												},
-												onmessage: function (msg, jsep) {
-													console.log(" ::: Got a message :::", msg)
-													let result = msg["result"]
-													setListUser(result?.list)
-
-													if (result) {
-														let event = result["event"]
-														if (event === "registered") {
-															let _myusername = result["username"]
-															setLocalUser(_myusername)
-
-															newPlugin.send({ message: { request: "list" } })
-														} else if (event === "calling") {
-															console.log("Waiting for the peer to answer...")
-															setIsLoading(true)
-														} else if (event === "incomingcall") {
-															console.log("Incoming call from " + result["username"] + "!")
-
-															let yourusername = result["username"]
-															setUsertoCall(yourusername)
-															setIncomingCall(true)
-															setJsepCall(jsep)
-														} else if (event === "accepted") {
-															let peer = result["username"]
-															if (!peer) {
-																console.log("Call started!")
-															} else {
-																setUsertoCall(peer)
-																console.log(peer + " accepted the call!")
-																// setUsertoCall(peer)
-															}
-															// Video call can start
-															setCallStarted(true)
-															if (jsep) {
-																newPlugin.handleRemoteJsep({ jsep: jsep })
-															}
-														} else if (event === "hangup") {
-															console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
-															newPlugin.hangup()
-														}
-													} else {
-														let error = msg["error"]
-														let errCode = msg["error_code"]
-														console.log("error here", msg)
-														if (errCode === 476) {
-															console.log("username already taken!")
-														} else {
-															newPlugin.hangup()
-														}
-														// alert(error)
-													}
-												},
-												onlocaltrack: async function (track, on) {
-													console.log("Local track " + (on ? "added" : "removed") + ":", track)
-
-													let localTracks = {}
-													let localVideos = 0
-
-													let trackId = track.id.replace(/[{}]/g, "")
-
-													if (!on) {
-														// Track removed, get rid of the stream and the rendering
-														let stream = localTracks[trackId]
-														if (stream) {
-															try {
-																let tracks = stream.getTracks()
-																for (let i in tracks) {
-																	let mst = tracks[i]
-																	if (mst !== null && mst !== undefined) mst.stop()
-																}
-															} catch (e) {}
-														}
-
-														if (track.kind === "video") {
-															document.getElementById(`myvideo${trackId}`).remove()
-
-															localVideos--
-															if (localVideos === 0) {
-																let noVideoContainer = document.querySelector("#videoleft .no-video-container")
-
-																console.log("noVideoContainer", noVideoContainer)
-																if (noVideoContainer === null) {
-																	document.getElementById("videoleft").insertAdjacentHTML(
-																		"beforeend",
-																		`<div class="no-video-container">
-																		 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-																		 <span class="no-video-text">No webcam available</span>
-																	   </div>`
-																	)
-																}
-															}
-														}
-														delete localTracks[trackId]
-														return
-													}
-													// If we're here, a new track was added
-													let stream = localTracks[trackId]
-													if (stream) {
-														// We've been here already
-														return
-													}
-
-													if (document.querySelectorAll("#videoleft video").length === 0) {
-														document.getElementById("videos").classList.remove("hide")
-													}
-
-													// setVideoenabled(true)
-													if (track.kind === "audio") {
-														// We ignore local audio tracks, they'd generate echo anyway
-														if (localVideos === 0) {
-															// setNoVideo(true)
-															// No video, at least for now: show a placeholder
-															let noVideoContainer = document.querySelector("#videoleft .no-video-container")
-															if (noVideoContainer === null) {
-																document.getElementById("videoleft").insertAdjacentHTML(
-																	"beforeend",
-																	`<div class="no-video-container">
-																	 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-																	 <span class="no-video-text">No webcam available</span>
-																   </div>`
-																)
-															}
-														}
-													} else {
-														// New video track: create a stream out of it
-														localVideos++
-														document.querySelector("#videoleft .no-video-container")?.remove()
-
-														stream = new MediaStream([track])
-														localTracks[trackId] = stream
-
-														Janus.log("Created local stream:", stream)
-														// setVideoenabled(true)
-
-														document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
-
-														let videoElement = document.getElementById(`myvideo${trackId}`)
-
-														if (videoElement) {
-															Janus.attachMediaStream(videoElement, stream)
-														}
-													}
-													if (newPlugin.webrtcStuff.pc.iceConnectionState !== "completed" && newPlugin.webrtcStuff.pc.iceConnectionState !== "connected") {
-														console.log("publishing here")
-													}
-												},
-												onremotetrack: function (track, mid, on, metadata) {
-													console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
-													let remoteTracks = {}
-													let remoteVideos = 0
-
-													let peerElement = document.getElementById(`peervideo${mid}`)
-
-													let peerVideo = null
-													if (!on) {
-														peerVideo = null
-														if (track.kind === "video") {
-															remoteVideos--
-															if (remoteVideos === 0) {
-																let noVideoContainer = document.querySelector("#videoright .no-video-container")
-																// No video, at least for now: show a placeholder
-																if (noVideoContainer === null) {
-																	document.getElementById("videoright").insertAdjacentHTML(
-																		"beforeend",
-																		`<div class="no-video-container">
-																		 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-																		 <span class="no-video-text">No webcam available</span>
-																	   </div>`
-																	)
-																}
-															}
-														}
-														delete remoteTracks[mid]
-														return
-													}
-
-													if (peerElement) return
-
-													// If we're here, a new track was added
-													setCallStarted(false)
-
-													let addButtons = false
-													if (document.querySelectorAll("#videoright audio") === null && document.querySelectorAll("#videoright video") === null) {
-														addButtons = true
-														setCallStarted(true)
-														document.getElementById("videos").classList.remove("hide")
-													}
-
-													if (track.kind === "audio") {
-														// New audio track: create a stream out of it, and use a hidden <audio> element
-														let stream = new MediaStream([track])
-														remoteTracks[mid] = stream
-														console.log("Created remote audio stream:", stream)
-														document.getElementById("videoright").insertAdjacentHTML(
-															"beforeend",
-															`
-														<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`
-														)
-
-														let audioElement = document.getElementById(`peervideo${mid}`)
-														if (audioElement) {
-															Janus.attachMediaStream(audioElement, stream)
-														}
-
-														if (remoteVideos === 0) {
-															let noVideoContainer = document.querySelector("#videoright .no-video-container")
-															// No video, at least for now: show a placeholder
-															if (noVideoContainer === null) {
-																document.getElementById("videoright").insertAdjacentHTML(
-																	"beforeend",
-																	`<div class="no-video-container">
-																		 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-																		 <span class="no-video-text">No webcam available</span>
-																	   </div>`
-																)
-															}
-														}
-													} else {
-														peerVideo = mid
-														// New video track: create a stream out of it
-														remoteVideos++
-														document.querySelector("#videoright .no-video-container")?.remove()
-
-														let stream = new MediaStream([track])
-														remoteTracks[mid] = stream
-														console.log("Created remote video stream:", stream)
-
-														document.getElementById("videoright").insertAdjacentHTML(
-															"beforeend",
-															`
-														<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
-														)
-
-														let videoElement = document.getElementById(`peervideo${mid}`)
-
-														if (videoElement) {
-															Janus.attachMediaStream(videoElement, stream)
-															setAudioEnabled(true)
-															setVideoenabled(true)
-														}
-													}
-													if (!addButtons) return
-												},
-												oncleanup: function () {
-													setOpenDialogCall(false)
-													window.location.reload()
-													console.log(" ::: Got a cleanup notification :::")
-													// doHangup()
-												}
-											})
-										},
-										error: function (error) {
-											console.log(error)
-											window.location.reload()
-										},
-										destroyed: function () {
-											window.location.reload()
-										}
-									})
-									setJanus(janus)
-								}
-							})
+		if (!janus) {
+			const initJanus = async () => {
+				Janus.init({
+					debug: true,
+					// dependencies: Janus.UseDefaultDependencies()
+					callback: () => {
+						if (!Janus.isWebrtcSupported()) {
+							alert("No WebRTC support... ")
+							return
 						}
-						initJanus()
+
+						let janus = new Janus({
+							server: server,
+							iceServers: iceServers,
+							success: function () {
+								let newPlugin = null
+								janus.attach({
+									plugin: "janus.plugin.videocall",
+									opaqueId: opaqueId,
+									success: function (pluginHandle) {
+										console.log("pluginHandle", "Plugin attached! (" + pluginHandle.getPlugin() + ", id=" + pluginHandle.getId() + ")")
+
+										setVideocall(pluginHandle)
+										newPlugin = pluginHandle
+
+										// doRegister(pluginHandle)
+										requestListUser(pluginHandle)
+									},
+									error: function (error) {
+										alert("  -- Error attaching plugin... " + error)
+									},
+									consentDialog: function (on) {
+										console.log("Consent dialog should be " + (on ? "on" : "off") + " now")
+									},
+									iceState: function (state) {
+										console.log("ICE state changed to " + state)
+									},
+									mediaState: function (medium, on, mid) {
+										console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
+									},
+									webrtcState: function (on) {
+										console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
+										// $("#videoleft").parent().unblock()
+									},
+									slowLink: function (uplink, lost, mid) {
+										console.log("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
+									},
+									onmessage: function (msg, jsep) {
+										console.log(" ::: Got a message :::", msg)
+										let result = msg["result"]
+										setListUser(result?.list)
+
+										if (result) {
+											let event = result["event"]
+											if (event === "registered") {
+												let _myusername = result["username"]
+												let parseUser = JSON.parse(_myusername)
+												setLocalUser(parseUser?.name)
+
+												newPlugin.send({ message: { request: "list" } })
+											} else if (event === "calling") {
+												console.log("Waiting for the peer to answer...")
+												setIsLoading(true)
+											} else if (event === "incomingcall") {
+												console.log("Incoming call from " + result["username"] + "!")
+
+												let yourusername = result["username"]
+												let parseUser = JSON.parse(yourusername)
+
+												setUsertoCall(parseUser?.name)
+												setIncomingCall(true)
+												setJsepCall(jsep)
+											} else if (event === "accepted") {
+												let peer = result["username"]
+												let parseUser = JSON.parse(peer)
+
+												if (!peer) {
+													console.log("Call started!")
+												} else {
+													setUsertoCall(parseUser?.name)
+													console.log(peer + " accepted the call!")
+													// setUsertoCall(peer)
+												}
+												// Video call can start
+												setCallStarted(true)
+												if (jsep) {
+													newPlugin.handleRemoteJsep({ jsep: jsep })
+												}
+											} else if (event === "hangup") {
+												console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
+												newPlugin.hangup()
+											}
+										} else {
+											let error = msg["error"]
+											let errCode = msg["error_code"]
+											console.log("error here", msg)
+											if (errCode === 476) {
+												console.log("username already taken!")
+											} else {
+												newPlugin.hangup()
+											}
+											// alert(error)
+										}
+									},
+									onlocaltrack: async function (track, on) {
+										console.log("Local track " + (on ? "added" : "removed") + ":", track)
+
+										let localTracks = {}
+										let localVideos = 0
+
+										let trackId = track.id.replace(/[{}]/g, "")
+
+										if (!on) {
+											// Track removed, get rid of the stream and the rendering
+											let stream = localTracks[trackId]
+											if (stream) {
+												try {
+													let tracks = stream.getTracks()
+													for (let i in tracks) {
+														let mst = tracks[i]
+														if (mst !== null && mst !== undefined) mst.stop()
+													}
+												} catch (e) {}
+											}
+
+											if (track.kind === "video") {
+												document.getElementById(`myvideo${trackId}`).remove()
+
+												localVideos--
+												if (localVideos === 0) {
+													let noVideoContainer = document.querySelector("#videoleft .no-video-container")
+
+													console.log("noVideoContainer", noVideoContainer)
+													if (noVideoContainer === null) {
+														document.getElementById("videoleft").insertAdjacentHTML(
+															"beforeend",
+															`<div class="no-video-container">
+															 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+															 <span class="no-video-text">No webcam available</span>
+														   </div>`
+														)
+													}
+												}
+											}
+											delete localTracks[trackId]
+											return
+										}
+										// If we're here, a new track was added
+										let stream = localTracks[trackId]
+										if (stream) {
+											// We've been here already
+											return
+										}
+
+										if (document.querySelectorAll("#videoleft video").length === 0) {
+											document.getElementById("videos").classList.remove("hide")
+										}
+
+										// setVideoenabled(true)
+										if (track.kind === "audio") {
+											// We ignore local audio tracks, they'd generate echo anyway
+											if (localVideos === 0) {
+												// setNoVideo(true)
+												// No video, at least for now: show a placeholder
+												let noVideoContainer = document.querySelector("#videoleft .no-video-container")
+												if (noVideoContainer === null) {
+													document.getElementById("videoleft").insertAdjacentHTML(
+														"beforeend",
+														`<div class="no-video-container">
+														 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+														 <span class="no-video-text">No webcam available</span>
+													   </div>`
+													)
+												}
+											}
+										} else {
+											// New video track: create a stream out of it
+											localVideos++
+											document.querySelector("#videoleft .no-video-container")?.remove()
+
+											stream = new MediaStream([track])
+											localTracks[trackId] = stream
+
+											Janus.log("Created local stream:", stream)
+											// setVideoenabled(true)
+
+											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
+
+											let videoElement = document.getElementById(`myvideo${trackId}`)
+
+											if (videoElement) {
+												Janus.attachMediaStream(videoElement, stream)
+											}
+										}
+										if (newPlugin.webrtcStuff.pc.iceConnectionState !== "completed" && newPlugin.webrtcStuff.pc.iceConnectionState !== "connected") {
+											console.log("publishing here")
+										}
+									},
+									onremotetrack: function (track, mid, on, metadata) {
+										console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
+										let remoteTracks = {}
+										let remoteVideos = 0
+
+										let peerElement = document.getElementById(`peervideo${mid}`)
+
+										let peerVideo = null
+										if (!on) {
+											peerVideo = null
+											if (track.kind === "video") {
+												remoteVideos--
+												if (remoteVideos === 0) {
+													let noVideoContainer = document.querySelector("#videoright .no-video-container")
+													// No video, at least for now: show a placeholder
+													if (noVideoContainer === null) {
+														document.getElementById("videoright").insertAdjacentHTML(
+															"beforeend",
+															`<div class="no-video-container">
+															 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+															 <span class="no-video-text">No webcam available</span>
+														   </div>`
+														)
+													}
+												}
+											}
+											delete remoteTracks[mid]
+											return
+										}
+
+										if (peerElement) return
+
+										// If we're here, a new track was added
+										setCallStarted(false)
+
+										let addButtons = false
+										if (document.querySelectorAll("#videoright audio") === null && document.querySelectorAll("#videoright video") === null) {
+											addButtons = true
+											setCallStarted(true)
+											document.getElementById("videos").classList.remove("hide")
+										}
+
+										if (track.kind === "audio") {
+											// New audio track: create a stream out of it, and use a hidden <audio> element
+											let stream = new MediaStream([track])
+											remoteTracks[mid] = stream
+											console.log("Created remote audio stream:", stream)
+											document.getElementById("videoright").insertAdjacentHTML(
+												"beforeend",
+												`
+											<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`
+											)
+
+											let audioElement = document.getElementById(`peervideo${mid}`)
+											if (audioElement) {
+												Janus.attachMediaStream(audioElement, stream)
+											}
+
+											if (remoteVideos === 0) {
+												let noVideoContainer = document.querySelector("#videoright .no-video-container")
+												// No video, at least for now: show a placeholder
+												if (noVideoContainer === null) {
+													document.getElementById("videoright").insertAdjacentHTML(
+														"beforeend",
+														`<div class="no-video-container">
+															 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
+															 <span class="no-video-text">No webcam available</span>
+														   </div>`
+													)
+												}
+											}
+										} else {
+											peerVideo = mid
+											// New video track: create a stream out of it
+											remoteVideos++
+											document.querySelector("#videoright .no-video-container")?.remove()
+
+											let stream = new MediaStream([track])
+											remoteTracks[mid] = stream
+											console.log("Created remote video stream:", stream)
+
+											document.getElementById("videoright").insertAdjacentHTML(
+												"beforeend",
+												`
+											<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
+											)
+
+											let videoElement = document.getElementById(`peervideo${mid}`)
+
+											if (videoElement) {
+												Janus.attachMediaStream(videoElement, stream)
+												setAudioEnabled(true)
+												setVideoenabled(true)
+											}
+										}
+										if (!addButtons) return
+									},
+									oncleanup: function () {
+										setOpenDialogCall(false)
+										window.location.reload()
+										console.log(" ::: Got a cleanup notification :::")
+										// doHangup()
+									}
+								})
+							},
+							error: function (error) {
+								console.log(error)
+								window.location.reload()
+							},
+							destroyed: function () {
+								window.location.reload()
+							}
+						})
+						setJanus(janus)
 					}
-				} else {
-					setDataUser(null)
-				}
-
-				// console.log("Data received from React Native App:", dataFromReactNative)
-				// Do something with the received data
-			} catch (error) {
-				console.error("Error parsing message:", error)
+				})
 			}
-		}
-
-		window.addEventListener("message", handleMessage)
-		console.log("useeffect handleMessage", window.postMessage("Data from injected JavaScript", "*"))
-
-		return () => {
-			window.removeEventListener("message", handleMessage)
+			initJanus()
 		}
 	}, [janus])
-
-	// useEffect(() => {
-	// 	if (!janus) {
-	// 		const initJanus = async () => {
-	// 			Janus.init({
-	// 				debug: true,
-	// 				// dependencies: Janus.UseDefaultDependencies()
-	// 				callback: () => {
-	// 					if (!Janus.isWebrtcSupported()) {
-	// 						alert("No WebRTC support... ")
-	// 						return
-	// 					}
-
-	// 					let janus = new Janus({
-	// 						server: server,
-	// 						iceServers: iceServers,
-	// 						success: function () {
-	// 							let newPlugin = null
-	// 							janus.attach({
-	// 								plugin: "janus.plugin.videocall",
-	// 								opaqueId: opaqueId,
-	// 								success: function (pluginHandle) {
-	// 									console.log("pluginHandle", "Plugin attached! (" + pluginHandle.getPlugin() + ", id=" + pluginHandle.getId() + ")")
-
-	// 									setVideocall(pluginHandle)
-	// 									newPlugin = pluginHandle
-
-	// 									// doRegister(pluginHandle)
-	// 									requestListUser(pluginHandle)
-	// 								},
-	// 								error: function (error) {
-	// 									alert("  -- Error attaching plugin... " + error)
-	// 								},
-	// 								consentDialog: function (on) {
-	// 									console.log("Consent dialog should be " + (on ? "on" : "off") + " now")
-	// 								},
-	// 								iceState: function (state) {
-	// 									console.log("ICE state changed to " + state)
-	// 								},
-	// 								mediaState: function (medium, on, mid) {
-	// 									console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
-	// 								},
-	// 								webrtcState: function (on) {
-	// 									console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
-	// 									// $("#videoleft").parent().unblock()
-	// 								},
-	// 								slowLink: function (uplink, lost, mid) {
-	// 									console.log("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
-	// 								},
-	// 								onmessage: function (msg, jsep) {
-	// 									console.log(" ::: Got a message :::", msg)
-	// 									let result = msg["result"]
-	// 									setListUser(result?.list)
-
-	// 									if (result) {
-	// 										let event = result["event"]
-	// 										if (event === "registered") {
-	// 											let _myusername = result["username"]
-	// 											setLocalUser(_myusername)
-
-	// 											newPlugin.send({ message: { request: "list" } })
-	// 										} else if (event === "calling") {
-	// 											console.log("Waiting for the peer to answer...")
-	// 											setIsLoading(true)
-	// 										} else if (event === "incomingcall") {
-	// 											console.log("Incoming call from " + result["username"] + "!")
-
-	// 											let yourusername = result["username"]
-	// 											setUsertoCall(yourusername)
-	// 											setIncomingCall(true)
-	// 											setJsepCall(jsep)
-	// 										} else if (event === "accepted") {
-	// 											let peer = result["username"]
-	// 											if (!peer) {
-	// 												console.log("Call started!")
-	// 											} else {
-	// 												setUsertoCall(peer)
-	// 												console.log(peer + " accepted the call!")
-	// 												// setUsertoCall(peer)
-	// 											}
-	// 											// Video call can start
-	// 											setCallStarted(true)
-	// 											if (jsep) {
-	// 												newPlugin.handleRemoteJsep({ jsep: jsep })
-	// 											}
-	// 										} else if (event === "hangup") {
-	// 											console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
-	// 											newPlugin.hangup()
-	// 										}
-	// 									} else {
-	// 										let error = msg["error"]
-	// 										let errCode = msg["error_code"]
-	// 										console.log("error here", msg)
-	// 										if (errCode === 476) {
-	// 											console.log("username already taken!")
-	// 										} else {
-	// 											newPlugin.hangup()
-	// 										}
-	// 										// alert(error)
-	// 									}
-	// 								},
-	// 								onlocaltrack: async function (track, on) {
-	// 									console.log("Local track " + (on ? "added" : "removed") + ":", track)
-
-	// 									let localTracks = {}
-	// 									let localVideos = 0
-
-	// 									let trackId = track.id.replace(/[{}]/g, "")
-
-	// 									if (!on) {
-	// 										// Track removed, get rid of the stream and the rendering
-	// 										let stream = localTracks[trackId]
-	// 										if (stream) {
-	// 											try {
-	// 												let tracks = stream.getTracks()
-	// 												for (let i in tracks) {
-	// 													let mst = tracks[i]
-	// 													if (mst !== null && mst !== undefined) mst.stop()
-	// 												}
-	// 											} catch (e) {}
-	// 										}
-
-	// 										if (track.kind === "video") {
-	// 											document.getElementById(`myvideo${trackId}`).remove()
-
-	// 											localVideos--
-	// 											if (localVideos === 0) {
-	// 												let noVideoContainer = document.querySelector("#videoleft .no-video-container")
-
-	// 												console.log("noVideoContainer", noVideoContainer)
-	// 												if (noVideoContainer === null) {
-	// 													document.getElementById("videoleft").insertAdjacentHTML(
-	// 														"beforeend",
-	// 														`<div class="no-video-container">
-	// 														 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-	// 														 <span class="no-video-text">No webcam available</span>
-	// 													   </div>`
-	// 													)
-	// 												}
-	// 											}
-	// 										}
-	// 										delete localTracks[trackId]
-	// 										return
-	// 									}
-	// 									// If we're here, a new track was added
-	// 									let stream = localTracks[trackId]
-	// 									if (stream) {
-	// 										// We've been here already
-	// 										return
-	// 									}
-
-	// 									if (document.querySelectorAll("#videoleft video").length === 0) {
-	// 										document.getElementById("videos").classList.remove("hide")
-	// 									}
-
-	// 									// setVideoenabled(true)
-	// 									if (track.kind === "audio") {
-	// 										// We ignore local audio tracks, they'd generate echo anyway
-	// 										if (localVideos === 0) {
-	// 											// setNoVideo(true)
-	// 											// No video, at least for now: show a placeholder
-	// 											let noVideoContainer = document.querySelector("#videoleft .no-video-container")
-	// 											if (noVideoContainer === null) {
-	// 												document.getElementById("videoleft").insertAdjacentHTML(
-	// 													"beforeend",
-	// 													`<div class="no-video-container">
-	// 													 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-	// 													 <span class="no-video-text">No webcam available</span>
-	// 												   </div>`
-	// 												)
-	// 											}
-	// 										}
-	// 									} else {
-	// 										// New video track: create a stream out of it
-	// 										localVideos++
-	// 										document.querySelector("#videoleft .no-video-container")?.remove()
-
-	// 										stream = new MediaStream([track])
-	// 										localTracks[trackId] = stream
-
-	// 										Janus.log("Created local stream:", stream)
-	// 										// setVideoenabled(true)
-
-	// 										document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
-
-	// 										let videoElement = document.getElementById(`myvideo${trackId}`)
-
-	// 										if (videoElement) {
-	// 											Janus.attachMediaStream(videoElement, stream)
-	// 										}
-	// 									}
-	// 									if (newPlugin.webrtcStuff.pc.iceConnectionState !== "completed" && newPlugin.webrtcStuff.pc.iceConnectionState !== "connected") {
-	// 										console.log("publishing here")
-	// 									}
-	// 								},
-	// 								onremotetrack: function (track, mid, on, metadata) {
-	// 									console.log("Remote track (mid=" + mid + ") " + (on ? "added" : "removed") + (metadata ? " (" + metadata.reason + ") " : "") + ":", track)
-	// 									let remoteTracks = {}
-	// 									let remoteVideos = 0
-
-	// 									let peerElement = document.getElementById(`peervideo${mid}`)
-
-	// 									let peerVideo = null
-	// 									if (!on) {
-	// 										peerVideo = null
-	// 										if (track.kind === "video") {
-	// 											remoteVideos--
-	// 											if (remoteVideos === 0) {
-	// 												let noVideoContainer = document.querySelector("#videoright .no-video-container")
-	// 												// No video, at least for now: show a placeholder
-	// 												if (noVideoContainer === null) {
-	// 													document.getElementById("videoright").insertAdjacentHTML(
-	// 														"beforeend",
-	// 														`<div class="no-video-container">
-	// 														 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-	// 														 <span class="no-video-text">No webcam available</span>
-	// 													   </div>`
-	// 													)
-	// 												}
-	// 											}
-	// 										}
-	// 										delete remoteTracks[mid]
-	// 										return
-	// 									}
-
-	// 									if (peerElement) return
-
-	// 									// If we're here, a new track was added
-	// 									setCallStarted(false)
-
-	// 									let addButtons = false
-	// 									if (document.querySelectorAll("#videoright audio") === null && document.querySelectorAll("#videoright video") === null) {
-	// 										addButtons = true
-	// 										setCallStarted(true)
-	// 										document.getElementById("videos").classList.remove("hide")
-	// 									}
-
-	// 									if (track.kind === "audio") {
-	// 										// New audio track: create a stream out of it, and use a hidden <audio> element
-	// 										let stream = new MediaStream([track])
-	// 										remoteTracks[mid] = stream
-	// 										console.log("Created remote audio stream:", stream)
-	// 										document.getElementById("videoright").insertAdjacentHTML(
-	// 											"beforeend",
-	// 											`
-	// 										<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`
-	// 										)
-
-	// 										let audioElement = document.getElementById(`peervideo${mid}`)
-	// 										if (audioElement) {
-	// 											Janus.attachMediaStream(audioElement, stream)
-	// 										}
-
-	// 										if (remoteVideos === 0) {
-	// 											let noVideoContainer = document.querySelector("#videoright .no-video-container")
-	// 											// No video, at least for now: show a placeholder
-	// 											if (noVideoContainer === null) {
-	// 												document.getElementById("videoright").insertAdjacentHTML(
-	// 													"beforeend",
-	// 													`<div class="no-video-container">
-	// 														 <i class="fa-solid fa-video fa-xl no-video-icon"></i>
-	// 														 <span class="no-video-text">No webcam available</span>
-	// 													   </div>`
-	// 												)
-	// 											}
-	// 										}
-	// 									} else {
-	// 										peerVideo = mid
-	// 										// New video track: create a stream out of it
-	// 										remoteVideos++
-	// 										document.querySelector("#videoright .no-video-container")?.remove()
-
-	// 										let stream = new MediaStream([track])
-	// 										remoteTracks[mid] = stream
-	// 										console.log("Created remote video stream:", stream)
-
-	// 										document.getElementById("videoright").insertAdjacentHTML(
-	// 											"beforeend",
-	// 											`
-	// 										<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
-	// 										)
-
-	// 										let videoElement = document.getElementById(`peervideo${mid}`)
-
-	// 										if (videoElement) {
-	// 											Janus.attachMediaStream(videoElement, stream)
-	// 											setAudioEnabled(true)
-	// 											setVideoenabled(true)
-	// 										}
-	// 									}
-	// 									if (!addButtons) return
-	// 								},
-	// 								oncleanup: function () {
-	// 									setOpenDialogCall(false)
-	// 									window.location.reload()
-	// 									console.log(" ::: Got a cleanup notification :::")
-	// 									// doHangup()
-	// 								}
-	// 							})
-	// 						},
-	// 						error: function (error) {
-	// 							console.log(error)
-	// 							window.location.reload()
-	// 						},
-	// 						destroyed: function () {
-	// 							window.location.reload()
-	// 						}
-	// 					})
-	// 					setJanus(janus)
-	// 				}
-	// 			})
-	// 		}
-	// 		initJanus()
-	// 	}
-	// }, [janus])
 
 	return (
 		<Grid
 			container
 			sx={{ overflow: "hidden", maxWidth: "100%" }}
 		>
+			{/* <Grid
+				item
+				sm={12}
+				xs={12}
+			>
+				<Typography>{dataUser ? JSON.stringify(dataUser) : null}</Typography>
+			</Grid> */}
 			{isIncoming && (
 				<Grid
 					item
@@ -852,10 +545,11 @@ export default function FullVideoCallPage() {
 					<Grid
 						container
 						sx={{ m: 2, width: "100%" }}
+						f
 						gap={2}
 					>
 						{listUser
-							?.filter((y) => y !== localUser)
+							?.filter((y) => JSON.parse(y)?.name !== localUser && y !== null && JSON.parse(y)?.name)
 							.map((x, index) => {
 								return (
 									<Grid
@@ -876,7 +570,7 @@ export default function FullVideoCallPage() {
 													}}
 												>
 													<CardContent>
-														<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{x}</Typography>
+														<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
 													</CardContent>
 												</CardActionArea>
 											</Card>
@@ -885,7 +579,7 @@ export default function FullVideoCallPage() {
 								)
 							})}
 
-						{listUser?.filter((y) => y !== localUser)?.length === 0 && (
+						{listUser?.filter((y) => y !== localUser && y !== null && JSON.parse(y)?.name)?.length === 0 && (
 							<Grid
 								item
 								md={12}

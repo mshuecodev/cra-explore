@@ -11,15 +11,24 @@ import FullScreenDialog from "../components/FullDialog"
 const server = "https://webrtc.sedap.app/janus"
 // const server = "https://webrtc.teknologi40.online/janus"
 // const server = "http://172.31.205.114:8088/janus"
+// const iceServers = [
+// 	{
+// 		// urls: "stun:stun.l.google.com:19302",
+// 		urls: "stun:103.153.60.113:3478",
+// 		urls: "turn:103.153.60.113:3478",
+// 		username: "sedap",
+// 		credential: "sedap00",
+// 		urls: "turn:webrtc.sedap.app",
+// 	}
+// ]
 const iceServers = [
-	{
-		urls: "stun:stun.voip.eutelia.it:3478",
-		urls: "turn:103.153.60.156:3478",
-		username: "sedap",
-		credential: "sedap00"
-	}
+	// {
+	// 	urls: "turn:103.153.60.156:3478",
+	// 	urls: "turn:sedap.app:3478",
+	// 	username: "sedap",
+	// 	credential: "sedap00"
+	// }
 ]
-// const iceServers = []
 
 const getQueryStringValue = (name) => {
 	name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]")
@@ -109,11 +118,11 @@ export default function FullVideoCallPage() {
 		window.location.reload()
 	}
 
-	async function doCall(row) {
+	function doCall(row) {
 		let user = row
 
 		doRegister()
-		await videocall.createOffer({
+		videocall.createOffer({
 			tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true, simulcast: doSimulcast }, { type: "data" }],
 			success: function (jsep) {
 				console.debug("Got SDP!", jsep)

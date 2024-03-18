@@ -22,12 +22,11 @@ const server = "https://webrtc.sedap.app/janus"
 // 	}
 // ]
 const iceServers = [
-	// {
-	// 	urls: "turn:103.153.60.156:3478",
-	// 	urls: "turn:sedap.app:3478",
-	// 	username: "sedap",
-	// 	credential: "sedap00"
-	// }
+	{
+		urls: "turn:103.153.60.156:3478",
+		username: "sedap",
+		credential: "sedap00"
+	}
 ]
 
 const getQueryStringValue = (name) => {

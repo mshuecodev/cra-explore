@@ -596,19 +596,16 @@ export default function FullVideoCallPage() {
 					container
 					id="videos"
 					flexDirection={"column"}
-					sx={{ height: "100vh", my: 2 }}
 				>
 					<Grid
 						item
 						xs={12}
-						sx={{ flex: 1, height: "100%" }}
 					>
 						<div id="videoleft"></div>
 					</Grid>
 					<Grid
 						item
 						xs={12}
-						sx={{ flex: 1, height: "100%" }}
 					>
 						<div id="videoright"></div>
 					</Grid>

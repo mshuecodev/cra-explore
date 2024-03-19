@@ -360,7 +360,7 @@ export default function FullVideoCallPage() {
 											Janus.log("Created local stream:", stream)
 											// setVideoenabled(true)
 
-											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video style={{ position: "fixed", right: 0, bottom: 0, width: "200px", height: "200px" }} id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
+											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="rounded centered" id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
 
 											let videoElement = document.getElementById(`myvideo${trackId}`)
 
@@ -456,7 +456,7 @@ export default function FullVideoCallPage() {
 											document.getElementById("videoright").insertAdjacentHTML(
 												"beforeend",
 												`
-											<video style={{ position: "fixed", right: 0, bottom: 0, minWidth: "100%", minHeight: "100%" }} id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
+											<video class="rounded centered" id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
 											)
 
 											let videoElement = document.getElementById(`peervideo${mid}`)
@@ -494,164 +494,206 @@ export default function FullVideoCallPage() {
 	}, [janus])
 
 	return (
-		<div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+		<Grid
+			container
+			sx={{ overflow: "hidden", maxWidth: "100%" }}
+		>
+			{/* <Grid
+				item
+				sm={12}
+				xs={12}
+			>
+				<Typography>{dataUser ? JSON.stringify(dataUser) : null}</Typography>
+			</Grid> */}
 			{isIncoming && (
-				<Box sx={{ position: "fixed", bottom: 50 }}>
-					<Box sx={{ display: "flex", gap: 2 }}>
-						<IconButton
-							aria-label="delete"
-							sx={{ bgcolor: "green", color: "white" }}
-							onClick={() => {
-								doAnswer()
-							}}
-						>
-							<CallEndIcon />
-						</IconButton>
-						<IconButton
-							aria-label="delete"
-							sx={{ bgcolor: "red", color: "white" }}
-							onClick={() => {
-								doHangup()
-							}}
-						>
-							<CallEndIcon />
-						</IconButton>
-					</Box>
-				</Box>
-			)}
-
-			{!openDialogCall && (
 				<Grid
-					container
-					sx={{ m: 2, width: "100%" }}
-					gap={2}
+					item
+					sm={12}
+					xs={12}
 				>
-					{listUser
-						?.filter((y) => JSON.parse(y)?.name !== localUser && y !== null && JSON.parse(y)?.name)
-						.map((x, index) => {
-							return (
-								<Grid
-									key={index}
-									item
-									md={12}
-									sm={12}
-									xs={12}
-								>
-									<Box sx={{ width: "90%" }}>
-										<Card
-											variant="outlined"
-											sx={{ minWidth: "80%" }}
-										>
-											<CardActionArea
-												onClick={() => {
-													doCall(x)
-												}}
-											>
-												<CardContent>
-													<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
-												</CardContent>
-											</CardActionArea>
-										</Card>
-									</Box>
-								</Grid>
-							)
-						})}
-
-					{listUser?.filter((y) => y !== localUser && y !== null && JSON.parse(y)?.name)?.length === 0 && (
-						<Grid
-							item
-							md={12}
-							sm={12}
-							xs={12}
+					<Grid
+						container
+						justifyContent={"center"}
+						alignItems={"center"}
+						gap={2}
+						sx={{ position: "fixed", bottom: 50 }}
+					>
+						<Button
+							variant="contained"
+							color="success"
+							onClick={doAnswer}
 						>
-							<Typography textAlign={"center"}>Tidak ada user aktif.</Typography>
-						</Grid>
-					)}
+							Answer
+						</Button>
+						<Button
+							variant="contained"
+							color="error"
+							onClick={doHangup}
+						>
+							Hang Up
+						</Button>
+					</Grid>
 				</Grid>
 			)}
+			<Grid
+				item
+				md={12}
+				lg={12}
+				xs={12}
+			>
+				{!openDialogCall && (
+					<Grid
+						container
+						sx={{ m: 2, width: "100%" }}
+						f
+						gap={2}
+					>
+						{listUser
+							?.filter((y) => JSON.parse(y)?.name !== localUser && y !== null && JSON.parse(y)?.name)
+							.map((x, index) => {
+								return (
+									<Grid
+										key={index}
+										item
+										md={12}
+										sm={12}
+										xs={12}
+									>
+										<Box sx={{ width: "90%" }}>
+											<Card
+												variant="outlined"
+												sx={{ minWidth: "80%" }}
+											>
+												<CardActionArea
+													onClick={() => {
+														doCall(x)
+													}}
+												>
+													<CardContent>
+														<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
+													</CardContent>
+												</CardActionArea>
+											</Card>
+										</Box>
+									</Grid>
+								)
+							})}
 
-			<Box id="videos">
-				<div id="videoright"></div>
-				<div id="videoleft"></div>
-
-				{/* <Box>
-				<iframe
-					style={{ position: "fixed", right: 0, bottom: 0, minWidth: "100%", minHeight: "100%" }}
-					src="https://www.youtube.com/embed/tgbNymZ7vqY?playlist=tgbNymZ7vqY&loop=1"
-				></iframe>
-			</Box>
-			<Box>
-				<iframe
-					style={{ position: "fixed", right: 0, bottom: 0, width: "200px", height: "200px" }}
-					src="https://www.youtube.com/embed/tgbNymZ7vqY?playlist=tgbNymZ7vqY&loop=1"
-				></iframe>
-			</Box> */}
-				{openDialogCall && (
-					<Box style={{ position: "fixed", bottom: 2, width: "100%", zIndex: 2, left: 0, right: 0 }}>
-						{/* {openDialogCall && ( */}
-						<Box
-							mt={2}
-							sx={{ display: "flex", flexDirection: "row", gap: 2, alignItems: "center", justifyContent: "center", bgcolor: "white" }}
-						>
-							{audioEnabled ? (
-								<IconButton
-									size="large"
-									aria-label="delete"
-									id="toggleaudio"
-									onClick={() => toggleAudio(false)}
-								>
-									<VolumeUpIcon />
-								</IconButton>
-							) : (
-								<IconButton
-									size="large"
-									onClick={() => toggleAudio(true)}
-									aria-label="delete"
-									id="toggleaudio"
-								>
-									<VolumeOffIcon />
-								</IconButton>
-							)}
-
-							{videoEnabled ? (
-								<IconButton
-									size="large"
-									aria-label="delete"
-									id="togglevideo"
-									onClick={() => {
-										togglevideo(false)
-									}}
-								>
-									<VideocamIcon />
-								</IconButton>
-							) : (
-								<IconButton
-									aria-label="delete"
-									id="togglevideo"
-									size="large"
-									onClick={() => {
-										togglevideo(true)
-									}}
-								>
-									<VideocamOffIcon />
-								</IconButton>
-							)}
-
-							<IconButton
-								size="large"
-								aria-label="delete"
-								color="error"
-								onClick={() => {
-									doHangup()
-								}}
+						{listUser?.filter((y) => y !== localUser && y !== null && JSON.parse(y)?.name)?.length === 0 && (
+							<Grid
+								item
+								md={12}
+								sm={12}
+								xs={12}
 							>
-								<CallEndIcon />
-							</IconButton>
-						</Box>
-						{/* )} */}
-					</Box>
+								<Typography textAlign={"center"}>Tidak ada user aktif.</Typography>
+							</Grid>
+						)}
+					</Grid>
 				)}
-			</Box>
-		</div>
+
+				<Grid
+					container
+					id="videos"
+					flexDirection={"column"}
+					alignItems={"center"}
+					justifyContent={"center"}
+				>
+					<Grid
+						item
+						lg={4}
+						xs={12}
+					>
+						<div id="videoleft"></div>
+					</Grid>
+					<Grid
+						item
+						lg={4}
+						xs={12}
+					>
+						<div id="videoright"></div>
+					</Grid>
+
+					<Box>
+						{openDialogCall && (
+							<Box
+								mt={2}
+								sx={{ display: "flex", flexDirection: "row", gap: 2, alignItems: "center", justifyContent: "center" }}
+							>
+								{audioEnabled ? (
+									<IconButton
+										aria-label="delete"
+										id="toggleaudio"
+										onClick={() => toggleAudio(false)}
+									>
+										<VolumeUpIcon />
+									</IconButton>
+								) : (
+									<IconButton
+										onClick={() => toggleAudio(true)}
+										aria-label="delete"
+										id="toggleaudio"
+									>
+										<VolumeOffIcon />
+									</IconButton>
+								)}
+
+								{videoEnabled ? (
+									<IconButton
+										aria-label="delete"
+										id="togglevideo"
+										onClick={() => {
+											togglevideo(false)
+										}}
+									>
+										<VideocamIcon />
+									</IconButton>
+								) : (
+									<IconButton
+										aria-label="delete"
+										id="togglevideo"
+										onClick={() => {
+											togglevideo(true)
+										}}
+									>
+										<VideocamOffIcon />
+									</IconButton>
+								)}
+
+								<IconButton
+									aria-label="delete"
+									color="error"
+									onClick={() => {
+										doHangup()
+									}}
+								>
+									<CallEndIcon />
+								</IconButton>
+							</Box>
+						)}
+					</Box>
+				</Grid>
+				{/* <FullScreenDialog
+				open={openDialogCall}
+				title={userToCall}
+				handleClose={onCloseDialogCall}
+				content={
+					<>
+						<Grid
+							container
+							id="videos"
+						>
+							<Grid xs={12}>
+								<div id="videoleft"></div>
+							</Grid>
+							<Grid xs={12}>
+								<div id="videoright"></div>
+							</Grid>
+						</Grid>
+					</>
+				}
+			/> */}
+			</Grid>
+		</Grid>
 	)
 }

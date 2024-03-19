@@ -597,81 +597,75 @@ export default function FullVideoCallPage() {
 					id="videos"
 					flexDirection={"column"}
 				>
-					<Grid
-						item
-						xs={12}
-					>
-						<div id="videoleft"></div>
-					</Grid>
-					<Grid
-						item
-						xs={12}
-					>
-						<div id="videoright"></div>
-					</Grid>
-					<Grid
-						item
-						xs={12}
-					>
-						<Box>
-							{openDialogCall && (
-								<Box
-									mt={2}
-									sx={{ display: "flex", flexDirection: "row", gap: 2, alignItems: "center", justifyContent: "center" }}
-								>
-									{audioEnabled ? (
-										<IconButton
-											aria-label="delete"
-											id="toggleaudio"
-											onClick={() => toggleAudio(false)}
-										>
-											<VolumeUpIcon />
-										</IconButton>
-									) : (
-										<IconButton
-											onClick={() => toggleAudio(true)}
-											aria-label="delete"
-											id="toggleaudio"
-										>
-											<VolumeOffIcon />
-										</IconButton>
-									)}
+					{/* <div
+						id="videoleft"
+						style={{ position: "fixed", minWidth: "100%", minHeight: "100%", backgroundColor: "red" }}
+					></div>
+					<div
+						id="videoright"
+						style={{ position: "fixed", bottom: 0, right: 0, width: "200px" }}
+					></div> */}
 
-									{videoEnabled ? (
-										<IconButton
-											aria-label="delete"
-											id="togglevideo"
-											onClick={() => {
-												togglevideo(false)
-											}}
-										>
-											<VideocamIcon />
-										</IconButton>
-									) : (
-										<IconButton
-											aria-label="delete"
-											id="togglevideo"
-											onClick={() => {
-												togglevideo(true)
-											}}
-										>
-											<VideocamOffIcon />
-										</IconButton>
-									)}
-
+					<div id="videoleft"></div>
+					<div id="videoright"></div>
+					<Box>
+						{openDialogCall && (
+							<Box
+								mt={2}
+								sx={{ display: "flex", flexDirection: "row", gap: 2, alignItems: "center", justifyContent: "center" }}
+							>
+								{audioEnabled ? (
 									<IconButton
 										aria-label="delete"
-										color="error"
+										id="toggleaudio"
+										onClick={() => toggleAudio(false)}
+									>
+										<VolumeUpIcon />
+									</IconButton>
+								) : (
+									<IconButton
+										onClick={() => toggleAudio(true)}
+										aria-label="delete"
+										id="toggleaudio"
+									>
+										<VolumeOffIcon />
+									</IconButton>
+								)}
+
+								{videoEnabled ? (
+									<IconButton
+										aria-label="delete"
+										id="togglevideo"
 										onClick={() => {
-											doHangup()
+											togglevideo(false)
 										}}
 									>
-										<CallEndIcon />
+										<VideocamIcon />
 									</IconButton>
-								</Box>
-							)}
-						</Box>
-					</Grid>
+								) : (
+									<IconButton
+										aria-label="delete"
+										id="togglevideo"
+										onClick={() => {
+											togglevideo(true)
+										}}
+									>
+										<VideocamOffIcon />
+									</IconButton>
+								)}
+
+								<IconButton
+									aria-label="delete"
+									color="error"
+									onClick={() => {
+										doHangup()
+									}}
+								>
+									<CallEndIcon />
+								</IconButton>
+							</Box>
+						)}
+					</Box>
 				</Grid>
 				{/* <FullScreenDialog
 				open={openDialogCall}

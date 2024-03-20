@@ -360,7 +360,7 @@ export default function FullVideoCallPage() {
 											Janus.log("Created local stream:", stream)
 											// setVideoenabled(true)
 
-											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video style={{ position: "fixed", right: 0, bottom: 0, width: "200px", height: "200px" }} id="myvideo${trackId}" width="100%" height="100%" autoplay playsinline muted="muted"/>`)
+											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="leftvideo-elem"  id="myvideo${trackId}" autoplay playsinline muted="muted"/>`)
 
 											let videoElement = document.getElementById(`myvideo${trackId}`)
 
@@ -456,7 +456,7 @@ export default function FullVideoCallPage() {
 											document.getElementById("videoright").insertAdjacentHTML(
 												"beforeend",
 												`
-											<video style={{ position: "fixed", right: 0, bottom: 0, minWidth: "100%", minHeight: "100%" }} id="peervideo${mid}" width="100%" height="100%" autoplay playsinline/>`
+											<video class="rightvideo-elem"  id="peervideo${mid}" autoplay playsinline/>`
 											)
 
 											let videoElement = document.getElementById(`peervideo${mid}`)

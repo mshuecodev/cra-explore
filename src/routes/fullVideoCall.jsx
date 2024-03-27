@@ -50,6 +50,9 @@ export default function FullVideoCallPage() {
 	const [userToCall, setUsertoCall] = useState(null)
 	const [localUser, setLocalUser] = useState(null)
 
+	const [noVideoLocal, setNoVideoLocal] = useState(false)
+	const [vidoeID, setVideoID] = useState(null)
+
 	const [callStarted, setCallStarted] = useState(false)
 	const [videoEnabled, setVideoenabled] = useState(false)
 	const [audioEnabled, setAudioEnabled] = useState(false)
@@ -57,16 +60,33 @@ export default function FullVideoCallPage() {
 
 	function toggleAudio(e) {
 		let enable = e
+		console.log("toggle audio", e)
 		console.log(enable)
 		setAudioEnabled(enable)
-		videocall.send({ message: { request: "set", audio: enable } })
+		videocall?.send({ message: { request: "set", audio: e } })
 	}
 
 	function togglevideo(e) {
 		let enable = e
-		console.log(enable)
-		setAudioEnabled(enable)
-		videocall.send({ message: { request: "set", video: enable } })
+		console.log("toggle video", e)
+		setVideoenabled(enable)
+		videocall?.send({ message: { request: "set", video: e } })
+		if (e === false) {
+			setNoVideoLocal(true)
+			// document.getElementById(vidoeID).remove()
+			let videoElement = document.getElementById(vidoeID)
+			if (videoElement) {
+				videoElement.style.display = "none"
+				videoElement.style.backgroundColor = "black"
+			}
+		} else {
+			setNoVideoLocal(false)
+			let videoElement = document.getElementById(vidoeID)
+			if (videoElement) {
+				videoElement.style.display = "block"
+				videoElement.style.backgroundColor = "transparent"
+			}
+		}
 	}
 
 	function requestListUser(pluginHandle) {
@@ -78,7 +98,8 @@ export default function FullVideoCallPage() {
 	}
 
 	function doRegister(pluginHandle) {
-		let staticUser = JSON.stringify(dataUser) || "TESTING USER"
+		let user = { name: "TESTING USER" }
+		let staticUser = dataUser ? JSON.stringify(dataUser) : JSON.stringify(user)
 		let register = { request: "register", username: staticUser }
 		setLocalUser(staticUser)
 
@@ -225,13 +246,14 @@ export default function FullVideoCallPage() {
 										console.log(" ::: Got a message :::", msg)
 										let result = msg["result"]
 										setListUser(result?.list)
+										// console.log("parse", JSON.parse(result?.list))
 
 										if (result) {
 											let event = result["event"]
 											if (event === "registered") {
 												let _myusername = result["username"]
 												let parseUser = JSON.parse(_myusername)
-												setLocalUser(parseUser?.name)
+												setLocalUser(parseUser?.name ? parseUser?.name : parseUser)
 
 												newPlugin.send({ message: { request: "list" } })
 											} else if (event === "calling") {
@@ -243,7 +265,7 @@ export default function FullVideoCallPage() {
 												let yourusername = result["username"]
 												let parseUser = JSON.parse(yourusername)
 
-												setUsertoCall(parseUser?.name)
+												setUsertoCall(parseUser ? parseUser?.name : parseUser)
 												setIncomingCall(true)
 												setJsepCall(jsep)
 											} else if (event === "accepted") {
@@ -253,7 +275,7 @@ export default function FullVideoCallPage() {
 												if (!peer) {
 													console.log("Call started!")
 												} else {
-													setUsertoCall(parseUser?.name)
+													setUsertoCall(parseUser ? parseUser?.name : parseUser)
 													console.log(peer + " accepted the call!")
 													// setUsertoCall(peer)
 												}
@@ -363,6 +385,7 @@ export default function FullVideoCallPage() {
 											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="leftvideo-elem"  id="myvideo${trackId}" autoplay playsinline muted="muted"/>`)
 
 											let videoElement = document.getElementById(`myvideo${trackId}`)
+											setVideoID(`myvideo${trackId}`)
 
 											if (videoElement) {
 												Janus.attachMediaStream(videoElement, stream)
@@ -382,12 +405,17 @@ export default function FullVideoCallPage() {
 										let peerVideo = null
 										if (!on) {
 											peerVideo = null
+											peerElement.remove()
 											if (track.kind === "video") {
 												remoteVideos--
-												if (remoteVideos === 0) {
+												// remoteVideos = remoteVideos - 1
+												console.log("remoteVideos", remoteVideos)
+												if (remoteVideos < 0) {
 													let noVideoContainer = document.querySelector("#videoright .no-video-container")
+													console.log("noVideoContainer", noVideoContainer)
 													// No video, at least for now: show a placeholder
 													if (noVideoContainer === null) {
+														console.log("inject html here!")
 														document.getElementById("videoright").insertAdjacentHTML(
 															"beforeend",
 															`<div class="no-video-container">
@@ -529,32 +557,39 @@ export default function FullVideoCallPage() {
 					{listUser
 						?.filter((y) => JSON.parse(y)?.name !== localUser && y !== null && JSON.parse(y)?.name)
 						.map((x, index) => {
-							return (
-								<Grid
-									key={index}
-									item
-									md={12}
-									sm={12}
-									xs={12}
-								>
-									<Box sx={{ width: "90%" }}>
-										<Card
-											variant="outlined"
-											sx={{ minWidth: "80%" }}
-										>
-											<CardActionArea
-												onClick={() => {
-													doCall(x)
-												}}
+							let roles = JSON.parse(x)?.roles?.map((f) => f?.name)
+							let isNakes = roles?.includes("Nakes")
+							console.log("isNakes", isNakes)
+							if (isNakes) {
+								return (
+									<Grid
+										key={index}
+										item
+										md={12}
+										sm={12}
+										xs={12}
+									>
+										<Box sx={{ width: "90%" }}>
+											<Card
+												variant="outlined"
+												sx={{ minWidth: "80%" }}
 											>
-												<CardContent>
-													<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
-												</CardContent>
-											</CardActionArea>
-										</Card>
-									</Box>
-								</Grid>
-							)
+												<CardActionArea
+													onClick={() => {
+														doCall(x)
+													}}
+												>
+													<CardContent>
+														<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
+													</CardContent>
+												</CardActionArea>
+											</Card>
+										</Box>
+									</Grid>
+								)
+							} else {
+								return null
+							}
 						})}
 
 					{listUser?.filter((y) => y !== localUser && y !== null && JSON.parse(y)?.name)?.length === 0 && (
@@ -572,7 +607,14 @@ export default function FullVideoCallPage() {
 
 			<Box id="videos">
 				<div id="videoright"></div>
-				<div id="videoleft"></div>
+				<div id="videoleft">
+					{noVideoLocal ? (
+						<div
+							className="leftvideo-elem"
+							style={{ backgroundColor: "black", height: "200px" }}
+						></div>
+					) : null}
+				</div>
 
 				{/* <Box>
 				<iframe

@@ -53,6 +53,8 @@ export default function FullVideoCallPage() {
 	const [noVideoLocal, setNoVideoLocal] = useState(false)
 	const [vidoeID, setVideoID] = useState(null)
 
+	const [noVideoRemote, setNoRemoteVideo] = useState(false)
+
 	const [callStarted, setCallStarted] = useState(false)
 	const [videoEnabled, setVideoenabled] = useState(false)
 	const [audioEnabled, setAudioEnabled] = useState(false)
@@ -411,6 +413,7 @@ export default function FullVideoCallPage() {
 												// remoteVideos = remoteVideos - 1
 												console.log("remoteVideos", remoteVideos)
 												if (remoteVideos < 0) {
+													setNoRemoteVideo(true)
 													let noVideoContainer = document.querySelector("#videoright .no-video-container")
 													console.log("noVideoContainer", noVideoContainer)
 													// No video, at least for now: show a placeholder
@@ -493,6 +496,7 @@ export default function FullVideoCallPage() {
 												Janus.attachMediaStream(videoElement, stream)
 												setAudioEnabled(true)
 												setVideoenabled(true)
+												setNoRemoteVideo(false)
 											}
 										}
 										if (!addButtons) return
@@ -521,8 +525,16 @@ export default function FullVideoCallPage() {
 		}
 	}, [janus])
 
+	let styleDIV = { width: "100%", display: "flex", justifyContent: "center" }
+
+	if (noVideoRemote) {
+		styleDIV = { ...styleDIV, alignItems: "center", backgroundColor: "black" }
+	} else {
+		styleDIV = { width: "100%", display: "flex", justifyContent: "center" }
+	}
+
 	return (
-		<div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+		<div style={styleDIV}>
 			{isIncoming && (
 				<Box sx={{ position: "fixed", bottom: 50 }}>
 					<Box sx={{ display: "flex", gap: 2 }}>

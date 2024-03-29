@@ -10,19 +10,10 @@ import FullScreenDialog from "../components/FullDialog"
 
 const server = "https://webrtc.sedap.app/janus"
 // const server = "https://webrtc.teknologi40.online/janus"
-// const server = "http://172.31.205.114:8088/janus"
-// const iceServers = [
-// 	{
-// 		// urls: "stun:stun.l.google.com:19302",
-// 		urls: "stun:103.153.60.113:3478",
-// 		urls: "turn:103.153.60.113:3478",
-// 		username: "sedap",
-// 		credential: "sedap00",
-// 		urls: "turn:webrtc.sedap.app",
-// 	}
-// ]
+
 const iceServers = [
 	{
+		urls: "stun:103.153.60.156:3478",
 		urls: "turn:103.153.60.156:3478",
 		username: "sedap",
 		credential: "sedap00"
@@ -208,11 +199,12 @@ export default function FullVideoCallPage() {
 							return
 						}
 
+						let newPlugin = null
+
 						let janus = new Janus({
 							server: server,
 							iceServers: iceServers,
 							success: function () {
-								let newPlugin = null
 								janus.attach({
 									plugin: "janus.plugin.videocall",
 									opaqueId: opaqueId,
@@ -226,20 +218,37 @@ export default function FullVideoCallPage() {
 										requestListUser(pluginHandle)
 									},
 									error: function (error) {
-										alert("  -- Error attaching plugin... " + error)
+										Janus.error("  -- Error attaching plugin...", error)
 									},
 									consentDialog: function (on) {
 										console.log("Consent dialog should be " + (on ? "on" : "off") + " now")
 									},
 									iceState: function (state) {
-										console.log("ICE state changed to " + state)
+										Janus.log("ICE state changed to " + state)
+										console.log("newPlugin", newPlugin)
+
+										if (state === "disconnected") {
+											newPlugin.createOffer({
+												media: { data: true },
+												iceRestart: true,
+												success: function (jsep) {
+													console.log("success restart here", jsep)
+													setJsepCall(jsep)
+
+													var body = { request: "set" }
+													newPlugin.send({ message: body, jsep: jsep })
+												},
+												error: function (error) {
+													console.log("WebRTC error...", error)
+												}
+											})
+										}
 									},
 									mediaState: function (medium, on, mid) {
 										console.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium + " (mid=" + mid + ")")
 									},
 									webrtcState: function (on) {
-										console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
-										// $("#videoleft").parent().unblock()
+										Janus.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now")
 									},
 									slowLink: function (uplink, lost, mid) {
 										console.log("Janus reports problems " + (uplink ? "sending" : "receiving") + " packets on mid " + mid + " (" + lost + " lost packets)")
@@ -286,6 +295,30 @@ export default function FullVideoCallPage() {
 												if (jsep) {
 													newPlugin.handleRemoteJsep({ jsep: jsep })
 												}
+											} else if (event === "update") {
+												console.log("update here", jsep, jsepcall)
+												if (jsep) {
+													if (jsep.type === "answer") {
+														newPlugin.handleRemoteJsep({ jsep: jsep })
+													} else {
+														newPlugin.createAnswer({
+															jsep: jsep,
+															// We want bidirectional audio and video, if offered,
+															// plus data channels too if they were negotiated
+															tracks: [{ type: "audio", capture: true, recv: true }, { type: "video", capture: true, recv: true }, { type: "data" }],
+															success: function (jsep) {
+																setJsepCall(jsep)
+																Janus.debug("Got SDP!", jsep)
+																let body = { request: "set" }
+																newPlugin.send({ message: body, jsep: jsep })
+															},
+															error: function (error) {
+																Janus.error("WebRTC error:", error)
+																// bootbox.alert("WebRTC error... " + error.message)
+															}
+														})
+													}
+												}
 											} else if (event === "hangup") {
 												console.log("Call hung up by " + result["username"] + " (" + result["reason"] + ")!")
 												newPlugin.hangup()
@@ -296,9 +329,10 @@ export default function FullVideoCallPage() {
 											console.log("error here", msg)
 											if (errCode === 476) {
 												console.log("username already taken!")
-											} else {
-												newPlugin.hangup()
 											}
+											// else {
+											// 	newPlugin.hangup()
+											// }
 											// alert(error)
 										}
 									},
@@ -330,7 +364,7 @@ export default function FullVideoCallPage() {
 												if (localVideos === 0) {
 													let noVideoContainer = document.querySelector("#videoleft .no-video-container")
 
-													console.log("noVideoContainer", noVideoContainer)
+													// console.log("noVideoContainer", noVideoContainer)
 													if (noVideoContainer === null) {
 														document.getElementById("videoleft").insertAdjacentHTML(
 															"beforeend",
@@ -381,16 +415,20 @@ export default function FullVideoCallPage() {
 											stream = new MediaStream([track])
 											localTracks[trackId] = stream
 
-											Janus.log("Created local stream:", stream)
+											// Janus.log("Created local stream:", stream)
 											// setVideoenabled(true)
 
-											document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="leftvideo-elem"  id="myvideo${trackId}" autoplay playsinline muted="muted"/>`)
+											let elemVideo = document.querySelectorAll("#videoleft video")
 
-											let videoElement = document.getElementById(`myvideo${trackId}`)
-											setVideoID(`myvideo${trackId}`)
+											if (elemVideo?.length === 0) {
+												document.getElementById("videoleft").insertAdjacentHTML("beforeend", `<video class="leftvideo-elem"  id="myvideo${trackId}" autoplay playsinline muted="muted"/>`)
 
-											if (videoElement) {
-												Janus.attachMediaStream(videoElement, stream)
+												let videoElement = document.getElementById(`myvideo${trackId}`)
+												setVideoID(`myvideo${trackId}`)
+
+												if (videoElement) {
+													Janus.attachMediaStream(videoElement, stream)
+												}
 											}
 										}
 										if (newPlugin.webrtcStuff.pc.iceConnectionState !== "completed" && newPlugin.webrtcStuff.pc.iceConnectionState !== "connected") {
@@ -404,18 +442,19 @@ export default function FullVideoCallPage() {
 
 										let peerElement = document.getElementById(`peervideo${mid}`)
 
-										let peerVideo = null
 										if (!on) {
-											peerVideo = null
-											peerElement.remove()
+											if (peerElement) {
+												peerElement.remove()
+											}
+
 											if (track.kind === "video") {
 												remoteVideos--
 												// remoteVideos = remoteVideos - 1
-												console.log("remoteVideos", remoteVideos)
+												// console.log("remoteVideos", remoteVideos)
 												if (remoteVideos < 0) {
 													setNoRemoteVideo(true)
 													let noVideoContainer = document.querySelector("#videoright .no-video-container")
-													console.log("noVideoContainer", noVideoContainer)
+													// console.log("noVideoContainer", noVideoContainer)
 													// No video, at least for now: show a placeholder
 													if (noVideoContainer === null) {
 														console.log("inject html here!")
@@ -450,15 +489,19 @@ export default function FullVideoCallPage() {
 											let stream = new MediaStream([track])
 											remoteTracks[mid] = stream
 											console.log("Created remote audio stream:", stream)
-											document.getElementById("videoright").insertAdjacentHTML(
-												"beforeend",
-												`
-											<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`
-											)
 
-											let audioElement = document.getElementById(`peervideo${mid}`)
-											if (audioElement) {
-												Janus.attachMediaStream(audioElement, stream)
+											let elemAudio = document.querySelectorAll("#videoright audio")
+											if (elemAudio?.length === 0) {
+												document.getElementById("videoright").insertAdjacentHTML(
+													"beforeend",
+													`
+												<audio class="hide" id="peervideo${mid}" autoplay playsinline/>`
+												)
+
+												let audioElement = document.getElementById(`peervideo${mid}`)
+												if (audioElement) {
+													Janus.attachMediaStream(audioElement, stream)
+												}
 											}
 
 											if (remoteVideos === 0) {
@@ -475,35 +518,37 @@ export default function FullVideoCallPage() {
 												}
 											}
 										} else {
-											peerVideo = mid
+											// peerVideo = mid
 											// New video track: create a stream out of it
 											remoteVideos++
 											document.querySelector("#videoright .no-video-container")?.remove()
 
 											let stream = new MediaStream([track])
 											remoteTracks[mid] = stream
-											console.log("Created remote video stream:", stream)
+											// console.log("Created remote video stream:", stream)
 
-											document.getElementById("videoright").insertAdjacentHTML(
-												"beforeend",
-												`
-											<video class="rightvideo-elem"  id="peervideo${mid}" autoplay playsinline/>`
-											)
+											let elemVideo = document.querySelectorAll("#videoright video")
+											if (elemVideo?.length === 0) {
+												document.getElementById("videoright").insertAdjacentHTML(
+													"beforeend",
+													`
+												<video class="rightvideo-elem"  id="peervideo${mid}" autoplay playsinline/>`
+												)
 
-											let videoElement = document.getElementById(`peervideo${mid}`)
-
-											if (videoElement) {
-												Janus.attachMediaStream(videoElement, stream)
-												setAudioEnabled(true)
-												setVideoenabled(true)
-												setNoRemoteVideo(false)
+												let videoElement = document.getElementById(`peervideo${mid}`)
+												if (videoElement) {
+													Janus.attachMediaStream(videoElement, stream)
+													setAudioEnabled(true)
+													setVideoenabled(true)
+													setNoRemoteVideo(false)
+												}
 											}
 										}
 										if (!addButtons) return
 									},
 									oncleanup: function () {
 										setOpenDialogCall(false)
-										window.location.reload()
+										// window.location.reload()
 										console.log(" ::: Got a cleanup notification :::")
 										// doHangup()
 									}
@@ -511,7 +556,7 @@ export default function FullVideoCallPage() {
 							},
 							error: function (error) {
 								console.log(error)
-								window.location.reload()
+								// window.location.reload()
 							},
 							destroyed: function () {
 								window.location.reload()
@@ -567,38 +612,46 @@ export default function FullVideoCallPage() {
 					gap={2}
 				>
 					{listUser
-						?.filter((y) => JSON.parse(y)?.name !== localUser && y !== null && JSON.parse(y)?.name)
+						// ?.filter((y) => JSON.parse(y)?.name !== localUser && y !== null && JSON.parse(y)?.name)
+						?.filter((y) => y !== null)
 						.map((x, index) => {
 							let roles = JSON.parse(x)?.roles?.map((f) => f?.name)
 							let isNakes = roles?.includes("Nakes")
 							console.log("isNakes", isNakes)
-							if (isNakes) {
-								return (
-									<Grid
-										key={index}
-										item
-										md={12}
-										sm={12}
-										xs={12}
-									>
-										<Box sx={{ width: "90%" }}>
-											<Card
-												variant="outlined"
-												sx={{ minWidth: "80%" }}
+							let parseData = JSON.parse(x)
+							if (typeof parseData === "object") {
+								if (JSON.parse(x)?.name !== localUser && x !== null && JSON.parse(x)?.name) {
+									if (isNakes) {
+										return (
+											<Grid
+												key={index}
+												item
+												md={12}
+												sm={12}
+												xs={12}
 											>
-												<CardActionArea
-													onClick={() => {
-														doCall(x)
-													}}
-												>
-													<CardContent>
-														<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
-													</CardContent>
-												</CardActionArea>
-											</Card>
-										</Box>
-									</Grid>
-								)
+												<Box sx={{ width: "90%" }}>
+													<Card
+														variant="outlined"
+														sx={{ minWidth: "80%" }}
+													>
+														<CardActionArea
+															onClick={() => {
+																doCall(x)
+															}}
+														>
+															<CardContent>
+																<Typography sx={{ fontWeight: "bold", fontSize: 12 }}>{JSON.parse(x)?.name || "-"}</Typography>
+															</CardContent>
+														</CardActionArea>
+													</Card>
+												</Box>
+											</Grid>
+										)
+									} else {
+										return null
+									}
+								}
 							} else {
 								return null
 							}
